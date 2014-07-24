@@ -1,46 +1,5 @@
 #!/usr/bin/perl
 
-# 
-#  skrypt muflona 
-#  przerobiony tak,ze: 
-# 
-# 1.6.4
-#   1. linkowanie do istniejacych obrazkow
-#   2. 20 pozycji w rss
-# 1.6.3.
-#   1. rozszerzone tagi "alt"
-#   2. iso z tagu "ISO" zeby nie bylo iso1234
-# 1.6.2
-#   1. dziala z nowszym exiftoolem ("mm" w focal)
-#   2. linki do stats znikaja bez istats, about skrocony
-# 1.6.1
-#   1. poprawione debuglevele
-# 1.6.0
-#   1. linkowanie istniejacych galerii
-# 1.5.5
-#  1. update statystyk: na kazdej stronie
-# 1.5.4
-#  1. zaktualizowane do CVS-2006-07-24
-#  2. google: revisit
-# 1.5.3
-#  1. LOCAL_FOOTER
-# 1.5.2
-#  1. bug z zlym dzialanie thumb_quality
-# 1.5.1
-#  1. opcja ISTATS
-# 1.5.0
-#  upgrade do wersji sgallery-0.5, zmiany w stosunku do oryginalu:
-#   1. dodanie metering i EV do exifa dla innych aparatow niz 1D
-#   2. jesli w katalogu znajduje sie plik about.html to ZAMIAST Prev,Up,Next bedzie About Author 
-#   3. jesli w katalogu znajduje sie plik nazwa_pliku_graficznego.txt (konczacego sie na txt) to  
-#      zawartosc tego pliku zostaje dopisana do strony z ta konkretna fotka 
-#   4. obok about tworzy statsy 
-#   5. dodanie "alt" do tagow "img" 
-#   6. godzina z exifa do daty 
-#   7. uwzglednia zmienna header
-#   8. nazwy  .jpg.html
-#   9. bug z noconv
-
 use strict;
 use Image::ExifTool;
 use Image::Magick;
@@ -250,9 +209,9 @@ sub new {
       my $short;
       my $long;
 
-      if ($$info{ShortFocal} =~ /(\d+) mm/)
+      if ($$info{ShortFocal} =~ /(\d+)mm/)
 	{ $short = $1; }
-      if ($$info{LongFocal} =~ /(\d+) mm/)
+      if ($$info{LongFocal} =~ /(\d+)mm/)
 	{ $long = $1; }
 
       if (($short == $long)  && ($short >1)) {
@@ -770,8 +729,10 @@ sub generate_index {
   print ("      document.onkeypress = getKey;\n");
   print ("    // -->\n");
   print ("  </script>\n");
+  print ("  <script type=\"text/javascript\" src=\"/tooltip.js\"></script>");
   print (" </head>\n");
   print (" <body>\n");
+  print (" <div id=\"t1\" class=\"tip\">Nawigacja z klawiatury:<br><br>Shift-lewo - poprzednie zdjêcie<br>Shift-prawo - nastêpne zdjêcie<br>Shift-góra - powrót</div>");
   if ($self->{SETTINGS}->{HEADER} ne "&nbsp;"){ 
   print ($self->{SETTINGS}->{HEADER}."\n");} 
   print ("  <table style=\"width: ".$self->{SETTINGS}->{TABLE_WIDTH}."px;\" cellspacing=\"0\">\n");
@@ -783,8 +744,8 @@ sub generate_index {
   print ("    <td".colspan($columns-1)." class=\"parent_links\">\n");
   $self->print_parent_links(0, "n");
   print ("    </td>\n");
-  print ("    <td class=\"nav_links\">\n");
   if ( -f "about.html"){ 
+     print ("    <td class=\"nav_links\">\n");
      if ( $self->{SETTINGS}->{ISTATS} ) {
 	print ("  <a href=\"../cgi-bin/stats.cgi\">Most viewed</a>&nbsp;&nbsp;&nbsp;   <a href=\"about.html\">About</a>\n");
 	}
@@ -794,6 +755,7 @@ sub generate_index {
      
     } 
   else{
+     print ("    <td class=\"nav_links\" onmouseout=\"popUp(event,'t1')\" onmouseover=\"popUp(event,'t1')\"  onclick=\"return false\">\n");
      if ( $self->{SETTINGS}->{ISTATS} ) {
 	  print ("     <a href=\"/cgi-bin/stats2.cgi?".$self->{DIRNAME}."\">Most Viewed&nbsp;&nbsp;&nbsp;</a>".$self->{SETTINGS}->{LINK_PREV}."&nbsp;&nbsp;&nbsp;");
 	}
@@ -1003,8 +965,10 @@ sub generate_image {
   print ("      document.onkeypress = getKey;\n");
   print ("    // -->\n");
   print ("  </script>\n");
+  print ("  <script type=\"text/javascript\" src=\"/tooltip.js\"></script>");
   print (" </head>\n");
   print (" <body>\n");
+  print (" <div id=\"t1\" class=\"tip\">Nawigacja z klawiatury:<br><br>Shift-lewo - poprzednie zdjêcie<br>Shift-prawo - nastêpne zdjêcie<br>Shift-góra - powrót</div>");
   print ("  <table style=\"width: ".$self->{SETTINGS}->{TABLE_WIDTH}."px;\" cellspacing=\"0\">\n");
   print ("   <tr>\n");
   print ("    <td ".width(-$columns)." class=\"title\">".$title."</td>\n");
@@ -1015,7 +979,7 @@ sub generate_image {
   $self->print_parent_links(0, "y");
   print ("     (".$progress.")\n");
   print ("    </td>\n");
-  print ("    <td class=\"nav_links\">\n");
+  print ("    <td class=\"nav_links\" onmouseout=\"popUp(event,'t1')\" onmouseover=\"popUp(event,'t1')\"  onclick=\"return false\">\n");
   if ($prev_link >= 0) {
     print ("     <a href=\"".uri_escape($self->{ENTRIES}[$prev_link]->{BASENAME}).".html\">".$self->{SETTINGS}->{LINK_PREV}."</a>");
   } else {
