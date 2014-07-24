@@ -3,6 +3,8 @@
 #  skrypt muflona
 #  przerobiony tak,ze:
 
+# 1.2.1
+# 1. zmienione opcje converta, zeby bylo szybciej
 # 1.2.0
 # 1. opcja no_convert
 # 2. dodanie metering i EV do exifa
@@ -14,7 +16,7 @@
 # numer 1.1.0
 #  1)jesli w katalogu znajduje sie plik about.html to ZAMIAST Prev,Up,Next bedzie About Author
 #  2)jesli w katalogu znajduje sie plik nazwa_pliku_graficznego.txt (konczacego sie na txt) to 
-#    zawartosc tego pliku zostaje dopisana do stronki z ta konkretna fotka
+#    zawartosc tego pliku zostaje dopisana do strony z ta konkretna fotka
 #  3)uwzglednia zmienna Footer i header (desc)
 #  4)zmienione parametry konwersji i rozmiar obrazka
 #  5)zachowuje nazwy plikow i katalogow oraz thumbow
@@ -818,7 +820,7 @@ $self->debug(1,"    Copying ".$self->{SETTINGS}->{LOCAL_CSS_FILE}."");
     $thumb_size = $self->{SETTINGS}->{LOCAL_THUMB_SIZE};
   }
 
-  my $options_thumb = "-geometry ".$thumb_size." ".$convert_options;
+  my $options_thumb = "-size ".$thumb_size." -geometry ".$thumb_size." ".$convert_options;
   my $options_image = "-geometry ".$image_size." ".$convert_options;
 
      my $thumb_cache = Cache->new("thumbs/.cache");
