@@ -5,9 +5,9 @@
 #  1)jesli w katalogu znajduje sie plik about.html to ZAMIAST Prev,Up,Next bedzie About Author
 #  2)jesli w katalogu znajduje sie plik nazwa_pliku_graficznego.txt (konczacego sie na txt) to 
 #    zawartosc tego pliku zostaje dopisana do stronki z ta konkretna fotka
-#  3)uwzglednia zmienna Footer
+#  3)uwzglednia zmienna Footer i header (desc)
 #  4)zmienione parametry konwersji i rozmiar obrazka
-#  5)odwrotna numeracja katalogow. (todo: thumby albumow sa wciaz numerowane normalnie)
+#  5)zachowuje nazwy plikow i katalogow
 
 use strict;
 
@@ -98,9 +98,11 @@ sub new {
   $self->{LINK_NEXT} = "Next";
   $self->{TREE_SEPARATOR} = "&diams;";
   $self->{FOOTER} = "&nbsp;";
+  $self->{HEADER} = "&nbsp;";
+  $self->{DESC} = "&nbsp;";
   $self->{DISPLAY_EXIF} = "y";
   $self->{FORCE_IMAGES} = undef;
-  $self->{DEBUG_LEVEL} = 3;
+  $self->{DEBUG_LEVEL} = 9;
 
   $self->{HIGHLIGHT} = "highlight.jpg";
   $self->{CSS_FILE} = undef;
@@ -279,7 +281,15 @@ $self->debug(1,"  Read COLUMNS: \"".$self->{SETTINGS}->{COLUMNS}."\"");
       }
       elsif (/FOOTER:\s+(.+)/) {
         $self->{SETTINGS}->{FOOTER} = $1;
-$self->debug(1,"  Read FOOTER: \"".$self->{SETTINGS}->{COLUMNS}."\"");
+$self->debug(1,"  Read FOOTER: \"".$self->{SETTINGS}->{FOOTER}."\"");
+      }
+      elsif (/HEADER:\s+(.+)/) {
+        $self->{SETTINGS}->{HEADER} = $1;
+$self->debug(1,"  Read HEADER: \"".$self->{SETTINGS}->{HEADER}."\"");
+      }
+      elsif (/DESC:\s+(.+)/) {
+        $self->{SETTINGS}->{DESC} = $1;
+$self->debug(1,"  Read DESC: \"".$self->{SETTINGS}->{DESC}."\"");
       }
       elsif (/LOCAL_IMAGE_SIZE:\s+(\S*)\s*/) {
         $self->{SETTINGS}->{LOCAL_IMAGE_SIZE} = $1;
@@ -479,6 +489,7 @@ sub generate_index {
   print ("  <title>".$title."</title>\n");
   print (" </head>\n");
   print (" <body>\n");
+  print ($self->{SETTINGS}->{HEADER}."\n");
   print ("  <table cellspacing=\"0\">\n");
   print ("   <tr>\n");
   print ("    <td".colspan($columns-1)." class=\"title\">".$title."</td>\n");
@@ -505,10 +516,12 @@ sub generate_index {
   
   print ("    </td>\n");
   print ("   </tr>\n");
+  
+  if ($self->{SETTINGS}->{DESC}){ 
+  print ("    <tr><td colspan=$columns align=center class=\"td.title\">".$self->{SETTINGS}->{DESC}."</td></tr>\n");
+  }
 
   my $n = 0;
-  my $nn = $self->{N_ENTRIES};
-#  print("tomaszg debug nn:".$nn);
   ROWS: while ($n < $self->{N_ENTRIES}) {
     print ("   <tr>\n");
     COLS: for my $col (0 .. $columns-1) {
@@ -531,9 +544,12 @@ sub generate_index {
           next ROWS;
         }
         elsif ( $self->{ENTRIES}[$n]->{OBJECT} eq "album" ) {
+	  my $nn = `basename $self->{ENTRIES}[$n]->{DIRECTORY}`;
+	    chomp $nn;
+#	    $self->debug(1,"tomaszg debug nn html: ".$nn);
           print ("    <td class=\"thumb_album\">\n");
-          print ("     <a href=\"".($nn-$n)."/index.html\">\n");
-          print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".$n.".jpg\">\n");
+          print ("     <a href=\"".$nn."/index.html\">\n");
+          print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".$nn.".jpg\">\n");
           if ($self->{ENTRIES}[$n]->{TITLE}) {
             print ("      <br>\n");
             print ("      ".$self->{ENTRIES}[$n]->{TITLE}."\n");
@@ -543,9 +559,10 @@ sub generate_index {
           $n++;
         }
         elsif ( $self->{ENTRIES}[$n]->{OBJECT} eq "image" ) {
+      my $nn = `basename $self->{ENTRIES}[$n]->{FILENAME}`; chomp $nn;	  
           print ("    <td class=\"thumb_image\">\n");
-          print ("     <a href=\"".$n.".html\">\n");
-          print ("      <img class=\"thumb_image\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".$n.".jpg\">\n");
+          print ("     <a href=\"".$nn.".html\">\n");
+          print ("      <img class=\"thumb_image\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".$nn.".jpg\">\n");
           if ($self->{ENTRIES}[$n]->{TITLE}) {
             print ("      <br>\n");
             print ("      ".$self->{ENTRIES}[$n]->{TITLE}."\n");
@@ -576,8 +593,8 @@ sub generate_index {
   print ("    </td>\n");
   print ("   </tr>\n");
   print ("  </table>\n");
-    print ("  <br><center><script language=\"javascript\"><!-- \n var ipath=\'labfiz.uwb.edu.pl/~tomaszg/istats5\'\n");
-  print ("  document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\"  SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");
+  print ("  <br><center><script language=\"javascript\"><!-- \n var ipath=\'212.33.73.85/tomaszg/istats5\'\n");
+  print ("  document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\" SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");
       print ("  //-->\n");
         print ("  </script></center>\n");
 
@@ -628,8 +645,10 @@ sub generate_image {
     $title = $self->{TITLE};
   }
 
+  my $nn = `basename $image->{FILENAME}`; chomp $nn;	  
+
   open my $oldout, ">&STDOUT";
-  open STDOUT,">".$n.".html";
+  open STDOUT,">".$nn.".html";
   print ("<html>\n");
   print (" <head>\n");
   print ("  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=".$self->{SETTINGS}->{CHARSET}."\">\n");
@@ -648,25 +667,41 @@ sub generate_image {
   print ("     (".$progress.")\n");
   print ("    </td>\n");
   print ("    <td class=\"nav_links\">\n");
-  if ($prev_link >= 0) {
-    print ("      <a href=\"".$prev_link.".html\">".$self->{SETTINGS}->{LINK_PREV}."</a>");
+  if ($prev_link >= 0) {                          
+    my $tmp2 = `basename $self->{ENTRIES}[$n-1]->{FILENAME}`;
+           chomp $tmp2;
+    print ("  <a href=\"".$tmp2.".html\">".$self->{SETTINGS}->{LINK_PREV}."</a>");
+#    print ("      <a href=\"".$prev_link.".html\">".$self->{SETTINGS}->{LINK_PREV}."</a>");
   } else {
     print ("      ".$self->{SETTINGS}->{LINK_PREV});
   }
   print ("&nbsp;&nbsp;&nbsp;<a href=\"index.html\">".$self->{SETTINGS}->{LINK_UP}."</a>&nbsp;&nbsp;&nbsp;");
   if ($next_link >= 0) {
-    print ("<a href=\"".$next_link.".html\">".$self->{SETTINGS}->{LINK_NEXT}."</a>\n");
+    my $tmp2 = `basename $self->{ENTRIES}[$n+1]->{FILENAME}`;
+           chomp $tmp2;
+    print ("  <a href=\"".$tmp2.".html\">".$self->{SETTINGS}->{LINK_PREV}."</a>");
+
+#    print ("<a href=\"".$next_link.".html\">".$self->{SETTINGS}->{LINK_NEXT}."</a>\n");
   } else {
     print ($self->{SETTINGS}->{LINK_NEXT}."\n");
   } 
   print ("    </td>\n");
   print ("   </tr>\n");
 
-
+  if (-f $self->{ENTRIES}[$n]->{FILENAME}.".txt") {
+        open(FILE, $self->{ENTRIES}[$n]->{FILENAME}.".txt");
+        print ("    <tr><td align=center class=\"td.title\">");
+    
+	while (<FILE>) {
+        print ("$_\n<br>");
+	}
+        print ("</td></tr>\n");
+        close(FILE);
+  }
 
   print ("   <tr>\n");
   print ("    <td class=\"image\" colspan=\"2\">\n");
-  print ("     <img class=\"image\" src=\"".$self->{SETTINGS}->{IMAGES_DIR}."/".$n.".jpg\">\n");
+  print ("     <img class=\"image\" src=\"".$self->{SETTINGS}->{IMAGES_DIR}."/".$nn."\">\n");
   print ("    </td>\n");
   print ("   </tr>\n");
   if ($image->{HAS_EXIF} && $self->{SETTINGS}->{DISPLAY_EXIF}) {
@@ -677,21 +712,9 @@ sub generate_image {
     print ("   </tr>\n");
   
   }
-  else
-  {
-    if (-f $self->{ENTRIES}[$n]->{FILENAME}.".txt") {
-        open(FILE, $self->{ENTRIES}[$n]->{FILENAME}.".txt");
-	print ("   <tr>\n");
-        print ("    <td class=\"exif\" colspan=\"2\">\n");
-    
-	while (<FILE>) {
-        print ("$_\n<br>");
-	}
-        print ("    </td>\n");
-	print ("   </tr>\n");
-        close(FILE);
-    }
-  }
+  
+  
+  
 
   print ("   <tr>\n");
   print ("    <td colspan=\"2\" class=\"footer\">\n");
@@ -699,7 +722,7 @@ sub generate_image {
   print ("    </td>\n");
   print ("   </tr>\n");
   print ("  </table>\n");
-  print ("  <br><center><script language=\"javascript\"><!-- \n var ipath=\'labfiz.uwb.edu.pl/~tomaszg/istats5\'\n");
+  print ("  <br><center><script language=\"javascript\"><!-- \n var ipath=\'212.33.73.85/tomaszg/istats5\'\n");
   print ("  document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\" SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");
       print ("  //-->\n");
         print ("  </script></center>\n");
@@ -717,6 +740,7 @@ sub generate {
 $self->debug(1,"Generating structure for \"".$self->{TITLE}."\"");
   mkdir $directory;
   chdir $directory;
+$self->debug(1,"tomaszg dir ".$directory);
 
   mkdir $self->{SETTINGS}->{THUMBS_DIR};
   mkdir $self->{SETTINGS}->{IMAGES_DIR};
@@ -761,8 +785,11 @@ $self->debug(1,"    Copying ".$self->{SETTINGS}->{LOCAL_CSS_FILE}."");
     }
 #    if ($src_image and (!($src_image =~ /txt$/))) {
     if ($src_image) {
-      my $dest_thumb = $self->{SETTINGS}->{THUMBS_DIR}."/".$n.".jpg";
-      my $dest_image = $self->{SETTINGS}->{IMAGES_DIR}."/".$n.".jpg";
+      my $nn = `basename "$src_image"`; chomp $nn;
+      my $dest_thumb = $self->{SETTINGS}->{THUMBS_DIR}."/".$nn.".jpg";
+#      $self->debug(1,"tomazg-conv ".$self->{ENTRIES}[$n]->{FILENAME});
+      my $dest_image = $self->{SETTINGS}->{IMAGES_DIR}."/".$nn;
+#      $self->debug(1,"tomazg-conv ".$dest_image);
       my $do_convert = undef;
       if ( !( -f $dest_thumb && -f $dest_image) || $self->{SETTINGS}->{FORCE_IMAGES} ) {
 $self->debug(5,"    Converting image (".$src_image.")");
@@ -794,9 +821,12 @@ $self->debug(5,"    Generating html for \"".$self->{ENTRIES}[$n]->{FILENAME}."\"
       $self->generate_image($n);
     }
     if ( $self->{ENTRIES}[$n]->{OBJECT} eq "album" ) {
-      mkdir $n;
-#      $self->debug(1,"tomaszgdebug: ".$self->{N_ENTRIES});
-      $self->{ENTRIES}[$n]->generate($directory."/".($self->{N_ENTRIES}-$n));
+      my $nn=`basename "$self->{ENTRIES}[$n]->{DIRECTORY}"`;
+      chomp $nn;
+      mkdir $nn;
+#      $self->debug(1,"tomaszgdebug-gen: ".$nn);
+#      $self->debug(1,"tomaszgdebug-gen2: ".$directory."/".$nn);
+      $self->{ENTRIES}[$n]->generate($directory."/".$nn);
       chdir $directory;
     }
   }
@@ -873,4 +903,4 @@ my $settings = Settings->new("/mnt/q/Foto/gal/settings");
 #$settings->{FORCE_IMAGES} = "y";
 $settings->{DEBUG_LEVEL} = 5;
 my $album = Album->new("/mnt/q/Foto/gal", undef, $settings->clone(), 0);
-$album->generate("/mnt/q/Foto/gal/html2");
+$album->generate("/mnt/q/Foto/gal/html");
