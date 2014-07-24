@@ -4,6 +4,9 @@
 #  skrypt muflona 
 #  przerobiony tak,ze: 
 # 
+# 1.6.4
+#   1. linkowanie do istniejacych obrazkow
+#   2. 20 pozycji w rss
 # 1.6.3.
 #   1. rozszerzone tagi "alt"
 #   2. iso z tagu "ISO" zeby nie bylo iso1234
@@ -247,9 +250,9 @@ sub new {
       my $short;
       my $long;
 
-      if ($$info{ShortFocal} =~ /(\d+)mm/)
+      if ($$info{ShortFocal} =~ /(\d+) mm/)
 	{ $short = $1; }
-      if ($$info{LongFocal} =~ /(\d+)mm/)
+      if ($$info{LongFocal} =~ /(\d+) mm/)
 	{ $long = $1; }
 
       if (($short == $long)  && ($short >1)) {
@@ -329,7 +332,7 @@ sub new {
   $self->{OBJECT} = "link";
   $self->{LINK} = $address;
   my $par = File::Basename::dirname($address);
-  my $nazw = File::Basename::basename($address);
+  my $nazw = File::Basename::basename($address,'.html');
   $self->{HIGHLIGHT} = $par."/thumbs/".$nazw;
   $self->{TITLE} = $title;
   bless $self;
@@ -833,7 +836,7 @@ sub generate_index {
         elsif ( $self->{ENTRIES}[$n]->{OBJECT} eq "album" ) {
           if (!$self->{ENTRIES}[$n]->{SETTINGS}->{OPTIONS_HIDDEN}) {
             print ("    <td".width($columns)." class=\"thumb_album\">\n");
-            print ("     <a href=\"".uri_escape($self->{ENTRIES}[$n]->{DIRNAME})."/index.html\">\n");
+            print ("     <a href=\"".uri_escape($self->{ENTRIES}[$n]->{DIRNAME})."\">\n");
             print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".uri_escape($self->{ENTRIES}[$n]->{DIRNAME}).".jpg\" alt=\" zdjêcia ".$self->{ENTRIES}[$n]->{TITLE}."\">\n");
             if ($self->{ENTRIES}[$n]->{TITLE}) {
               print ("      <br>".$self->{ENTRIES}[$n]->{TITLE}."\n");
@@ -847,7 +850,7 @@ sub generate_index {
         }
         elsif ( $self->{ENTRIES}[$n]->{OBJECT} eq "link" ) {
             print ("    <td".width($columns)." class=\"thumb_album\">\n");
-            print ("     <a href=\"".$self->{ENTRIES}[$n]->{LINK}."/index.html\">\n");
+            print ("     <a href=\"".$self->{ENTRIES}[$n]->{LINK}."\">\n");
             print ("      <img class=\"thumb_album\" src=\"".$self->{ENTRIES}[$n]->{HIGHLIGHT}.".jpg\" alt=\"zdjêcia ".$self->{ENTRIES}[$n]->{TITLE}."\">\n");
             if ($self->{ENTRIES}[$n]->{TITLE}) {
               print ("      <br>".$self->{ENTRIES}[$n]->{TITLE}."\n");
@@ -1521,7 +1524,7 @@ sub generate_rss {
       print (RSS " <lastBuildDate>Tue, 1 Jan 1980 00:00:00 +0000</lastBuildDate>\n");
     }
 
-    my $n = 15;
+    my $n = 20;
     ITEM_LOOP: for my $item (@array) {
       print (RSS " <item>\n");
       print (RSS "  <title>".$item->{TITLE}."</title>\n");
