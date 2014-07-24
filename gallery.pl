@@ -3,7 +3,10 @@
 # 
 #  skrypt muflona 
 #  przerobiony tak,ze: 
-#
+# 
+# 1.6.2
+#   1. dziala z nowszym exiftoolem ("mm" w focal)
+#   2. linki do stats znikaja bez istats, about skrocony
 # 1.6.1
 #   1. poprawione debuglevele
 # 1.6.0
@@ -235,17 +238,28 @@ sub new {
       elsif ($$info{'ISO'}) { $exif .= ", ISO".$$info{'ISO'}; }
 
       if ($$info{ShutterSpeed}) { $exif .= ", ".$$info{ShutterSpeed}."s"; }
+      
+#      if ($$info{LensType})
       my $show_focal = 1;
+      my $short;
+      my $long;
 
-      if (($$info{ShortFocal} == $$info{LongFocal}) ) {
-      # && ($$info{ShortFocal} >1)) {
+      if ($$info{ShortFocal} =~ /(\d+)mm/)
+	{ $short = $1; }
+      if ($$info{LongFocal} =~ /(\d+)mm/)
+	{ $long = $1; }
+
+      if (($short == $long)  && ($short >1)) {
         $show_focal = undef;
       }
-      $_ = $$info{ShortFocal}."-".$$info{LongFocal};
+      $_ = $short."-".$long;
 
-      my $lens = $settings->{LENSES}{$$info{ShortFocal}."-".$$info{LongFocal}};
+#      printf("short ".$$info{ShortFocal}." long ".$$info{LongFocal}."\n");
+
+
+      my $lens = $settings->{LENSES}{$short."-".$long};
       if ($lens) {
-        $exif .= "<br>".$lens." ";
+        $exif .= "<br>".$lens;
       } else {
         $exif .= ", ";
         $show_focal = 1;
@@ -253,7 +267,7 @@ sub new {
       if ($show_focal) { 
         $_ = $$info{FocalLength};
         if (/(.*)\..*/) {
-          $exif .= $1."mm";
+          $exif .= " ".$1."mm";
         }
       }
       if ($$info{Aperture}) { $exif .= ", f/".$$info{Aperture}; }
@@ -765,10 +779,21 @@ sub generate_index {
   print ("    </td>\n");
   print ("    <td class=\"nav_links\">\n");
   if ( -f "about.html"){ 
-    print ("  <a href=\"../cgi-bin/stats.cgi\">Most viewed</a>&nbsp;&nbsp;&nbsp;   <a href=\"about.html\">About ".$self->{TITLE}."</a>\n");
+     if ( $self->{SETTINGS}->{ISTATS} ) {
+	print ("  <a href=\"../cgi-bin/stats.cgi\">Most viewed</a>&nbsp;&nbsp;&nbsp;   <a href=\"about.html\">About</a>\n");
+	}
+     else {
+     	print ("<a href=\"about.html\">About</a>\n");
+     }
+     
     } 
   else{
-  print ("     <a href=\"/cgi-bin/stats2.cgi?".$self->{DIRNAME}."\">Most Viewed&nbsp;&nbsp;&nbsp;</a>".$self->{SETTINGS}->{LINK_PREV}."&nbsp;&nbsp;&nbsp;");
+     if ( $self->{SETTINGS}->{ISTATS} ) {
+	  print ("     <a href=\"/cgi-bin/stats2.cgi?".$self->{DIRNAME}."\">Most Viewed&nbsp;&nbsp;&nbsp;</a>".$self->{SETTINGS}->{LINK_PREV}."&nbsp;&nbsp;&nbsp;");
+	}
+     else {
+	  print ($self->{SETTINGS}->{LINK_PREV}."&nbsp;&nbsp;&nbsp;");
+     }	 
   if ($self->{PARENT_ALBUM}) {
     print (" <a href=\"../index.html\">".$self->{SETTINGS}->{LINK_UP}."</a>");
   } else {
