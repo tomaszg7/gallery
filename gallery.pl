@@ -4,7 +4,9 @@
 #  przerobiony tak,ze:
 
 
-
+# 1.1.1
+# 1.  nie dodaje &nbsp jak nie ma HEADERA
+# 2.  godzina z exifa do daty
 # numer 1.1.0
 #  1)jesli w katalogu znajduje sie plik about.html to ZAMIAST Prev,Up,Next bedzie About Author
 #  2)jesli w katalogu znajduje sie plik nazwa_pliku_graficznego.txt (konczacego sie na txt) to 
@@ -163,8 +165,8 @@ sub new {
       $self->{CAMERA} = $1;
       $self->{CAMERA} =~ s/\s+$//;
     }
-    elsif (/0x9003\|(\d\d\d\d):(\d\d):(\d\d) (\d\d:\d\d)/) {
-      $self->{DATE} = $3."-".$2."-".$1;
+    elsif (/0x9003\|(\d\d\d\d):(\d\d):(\d\d) (\d\d:\d\d):\d\d/) {
+      $self->{DATE} = $3."-".$2."-".$1." ".$4;
     }
     elsif (/0x829a\|(\S*)/) {
       $self->{SHUTTER_SPEED} = $1;
@@ -505,7 +507,8 @@ sub generate_index {
   print ("  <title>".$title."</title>\n");
   print (" </head>\n");
   print (" <body>\n");
-  print ($self->{SETTINGS}->{HEADER}."\n");
+  if ($self->{SETTINGS}->{HEADER} ne "&nbsp;"){
+  print ($self->{SETTINGS}->{HEADER}."\n");}
   print ("  <table cellspacing=\"0\">\n");
   print ("   <tr>\n");
   print ("    <td".colspan($columns-1)." class=\"title\">".$title."</td>\n");
@@ -745,7 +748,7 @@ sub generate_image {
   print ("     ".$self->{SETTINGS}->{FOOTER}."\n");
   print ("    </td>\n");
   print ("   </tr>\n");
-  print ("   <tr>\n");
+#  print ("   <tr>\n");
 #  print ("         <td colspan=2 class=footer>\n");
 #  print (" (c) 2005 Tomasz Golinski\n");
 #  print ("          </td>\n");
