@@ -1,3 +1,10 @@
+#
+#  skrypt muflona
+#  przerobiony tak,ze:
+#  1)jesli w katalogu znajduje sie plik about.html to ZAMIAST Prev,Up,Next bedzie About Author
+#  2)jesli w katalogu znajduje sie plik nazwa_pliku_graficznego.txt (konczacego sie na txt) to 
+#    zawartosc tego pliku zostaje dopisana do stronki z ta konkretna fotka
+#
 #!/usr/bin/perl
 
 use strict;
@@ -96,11 +103,11 @@ sub new {
   $self->{HIGHLIGHT} = "highlight.jpg";
   $self->{CSS_FILE} = undef;
   $self->{LOCAL_CSS_FILE} = undef;
-  $self->{IMAGE_SIZE} = "1000x700";
+  $self->{IMAGE_SIZE} = "750x500";
   $self->{LOCAL_IMAGE_SIZE} = undef;
   $self->{THUMB_SIZE} = "210x140";
   $self->{LOCAL_THUMB_SIZE} = undef;
-  $self->{CONVERT_OPTIONS} = "-sharpen 3 -quality 90";
+  $self->{CONVERT_OPTIONS} = "-gamma 1.3";
   $self->{LOCAL_CONVERT_OPTIONS} = undef;
   $self->{COLUMNS} = 4;
   $self->{LOCAL_COLUMNS} = undef;
@@ -268,10 +275,6 @@ $self->debug(1,"  Read LOCAL_COLUMNS: \"".$self->{SETTINGS}->{LOCAL_COLUMNS}."\"
         $self->{SETTINGS}->{COLUMNS} = $1;
 $self->debug(1,"  Read COLUMNS: \"".$self->{SETTINGS}->{COLUMNS}."\"");
       }
-      elsif (/FOOTER:\s+(.+)/) {
-        $self->{SETTINGS}->{FOOTER} = $1;
-$self->debug(1,"  Read FOOTER: \"".$self->{SETTINGS}->{COLUMNS}."\"");
-      }
       elsif (/LOCAL_IMAGE_SIZE:\s+(\S*)\s*/) {
         $self->{SETTINGS}->{LOCAL_IMAGE_SIZE} = $1;
         chomp $self->{SETTINGS}->{LOCAL_IMAGE_SIZE};
@@ -315,7 +318,7 @@ $self->debug(1,"    Directory: \"".$filename."\"");
             if ($filename eq $self->{SETTINGS}->{HIGHLIGHT}) {
               $self->{HIGHLIGHT} = $album->{HIGHLIGHT};
             }
-          } elsif ((-f $filename) && ($filename ne $self->{SETTINGS}->{DATAFILE}) && ($filename ne $css_basename) && ($filename ne $local_css_basename)) {
+          } elsif ((-f $filename) && ($filename ne $self->{SETTINGS}->{DATAFILE}) && ($filename ne $css_basename) && ($filename ne $local_css_basename) && !($filename =~ /txt$/)) {
 $self->debug(5,"    File: \"".$filename."\"");
             my $image = Image->new($directory."/".$filename, undef);
             $image->{IMAGE_INDEX} = $self->{N_IMAGES};
@@ -436,7 +439,7 @@ sub add_all_files {
   open (my $dir, "ls -d *|sort|");
   while (<$dir>) {
     my $filename = $_; chomp $filename;
-    if ((-f $filename) && (substr($filename,0,1) ne ".")) {
+    if ((-f $filename) && (substr($filename,0,1) ne ".") && !($filename =~ /txt$/)) {
 $self->debug(5,"  Adding image \"".$filename."\"");
       my $image = Image->new($directory."/".$filename, undef);
       $image->{IMAGE_INDEX} = $self->{N_IMAGES};
@@ -480,6 +483,11 @@ sub generate_index {
   $self->print_parent_links(0, "n");
   print ("    </td>\n");
   print ("    <td class=\"nav_links\">\n");
+  
+  if (-f "about.html"){
+    print ("     <a href=\"about.html\">About ".$self->{TITLE}."</a>\n");
+  }
+  else{
   print ("      ".$self->{SETTINGS}->{LINK_PREV}."&nbsp;&nbsp;&nbsp;\n");
   if ($self->{PARENT_ALBUM}) {
     print ("     <a href=\"../index.html\">".$self->{SETTINGS}->{LINK_UP}."</a>\n");
@@ -487,6 +495,8 @@ sub generate_index {
     print ("     ".$self->{SETTINGS}->{LINK_UP}."\n");
   }
   print ("      &nbsp;&nbsp;&nbsp;".$self->{SETTINGS}->{LINK_NEXT}."\n");
+  }
+  
   print ("    </td>\n");
   print ("   </tr>\n");
 
@@ -558,11 +568,6 @@ sub generate_index {
   print ("    </td>\n");
   print ("   </tr>\n");
   print ("  </table>\n");
-  print ("  <br><center><script language=\"javascript\"><!-- \n var ipath=\'labfiz.uwb.edu.pl/~tomaszg/istats5\'\n");
-  print ("  document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\" SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");
-  print ("  //-->\n");
-  print ("  </script></center>\n");
-
   print (" </body>\n");
   print ("</html>\n");
   print "\n";
@@ -657,6 +662,22 @@ sub generate_image {
     print ("     ".$image->{CAMERA}.", ".$image->{FOCAL_LENGTH}."mm, ".$image->{APERTURE}.", ".$image->{SHUTTER_SPEED}."s, ISO ".$image->{ISO}."\n");
     print ("    </td>\n");
     print ("   </tr>\n");
+  
+  }
+  else
+  {
+    if (-f $self->{ENTRIES}[$n]->{FILENAME}.".txt") {
+        open(FILE, $self->{ENTRIES}[$n]->{FILENAME}.".txt");
+	print ("   <tr>\n");
+        print ("    <td class=\"exif\" colspan=\"2\">\n");
+    
+	while (<FILE>) {
+        print ("$_\n<br>");
+	}
+        print ("    </td>\n");
+	print ("   </tr>\n");
+        close(FILE);
+    }
   }
 
   print ("   <tr>\n");
@@ -665,12 +686,15 @@ sub generate_image {
   print ("    </td>\n");
   print ("   </tr>\n");
   print ("  </table>\n");
+  print ("   <br><script language=\"javascript\">");
+  print ("  <!--");
+  print ("  var ipath='http://212.33.73.7/~gawryl/istats5'");
+  print ("  document.write('<SCR' + 'IPT LANGUAGE=\"JavaScript\" SRC=\"http://'+ ipath +'/istats.js\"><\/SCR' + 'IPT>');");
+  print ("  //-->");
+  print ("  </script>");
+  print ("  <!-- end istats code -->");
+
   print (" </body>\n");
-  print ("  <br><center><script language=\"javascript\"><!-- \n var ipath=\'labfiz.uwb.edu.pl/~tomaszg/istats5\'\n");
-  print ("  document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\" SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");
-  print ("  //-->\n");
-  print ("  </script></center>\n");
-    
   print ("</html>\n");
   close STDOUT;
   open STDOUT, ">&", $oldout;
@@ -719,12 +743,14 @@ $self->debug(1,"    Copying ".$self->{SETTINGS}->{LOCAL_CSS_FILE}."");
   my $image_cache = Cache->new("images/.cache");
 
   for my $n (0 .. $self->{N_ENTRIES}-1) {
+#    print "\n____gawryl debug____\n $self->{ENTRIES}[$n]->{FILENAME}\n"; sleep 1;
     my $src_image = undef;
     if ($self->{ENTRIES}[$n]->{OBJECT} eq "image") {
       $src_image = $self->{ENTRIES}[$n]->{FILENAME};
     } elsif ($self->{ENTRIES}[$n]->{OBJECT} eq "album") {
       $src_image = $self->{ENTRIES}[$n]->{HIGHLIGHT}->{FILENAME};
     }
+#    if ($src_image and (!($src_image =~ /txt$/))) {
     if ($src_image) {
       my $dest_thumb = $self->{SETTINGS}->{THUMBS_DIR}."/".$n.".jpg";
       my $dest_image = $self->{SETTINGS}->{IMAGES_DIR}."/".$n.".jpg";
@@ -833,10 +859,9 @@ sub debug {
 ##########################################
 package main;
 
-my $settings = Settings->new("/mnt/q/Foto/muflon-gall/settings");
+my $settings = Settings->new("/home/gawryl/public_html/galeria/settings");
 #$settings->{FORCE_IMAGES} = "y";
 $settings->{DEBUG_LEVEL} = 5;
-my $album = Album->new("/mnt/q/Foto/muflon-gall", undef, $settings->clone(), 0);
-$album->generate("/mnt/q/Foto/muflon-gall/html");
-
+my $album = Album->new("/home/gawryl/public_html/galeria", undef, $settings->clone(), 0);
+$album->generate("/home/gawryl/public_html/galeria");
 
