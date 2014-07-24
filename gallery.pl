@@ -4,6 +4,9 @@
 #  skrypt muflona 
 #  przerobiony tak,ze: 
 # 
+# 1.6.3.
+#   1. rozszerzone tagi "alt"
+#   2. iso z tagu "ISO" zeby nie bylo iso1234
 # 1.6.2
 #   1. dziala z nowszym exiftoolem ("mm" w focal)
 #   2. linki do stats znikaja bez istats, about skrocony
@@ -234,8 +237,8 @@ sub new {
   if ($$info{Model}) {
     my $exif = $$info{Model};
     if ($$info{ShutterSpeed} && $$info{FocalLength} && $$info{Aperture}) {
-      if ($$info{'ISO (1)'}) { $exif .= ", ISO".$$info{'ISO (1)'}; }
-      elsif ($$info{'ISO'}) { $exif .= ", ISO".$$info{'ISO'}; }
+#      if ($$info{'ISO (1)'}) { $exif .= ", ISO".$$info{'ISO (1)'}; }
+      if ($$info{'ISO'}) { $exif .= ", ISO".$$info{'ISO'}; }
 
       if ($$info{ShutterSpeed}) { $exif .= ", ".$$info{ShutterSpeed}."s"; }
       
@@ -831,7 +834,7 @@ sub generate_index {
           if (!$self->{ENTRIES}[$n]->{SETTINGS}->{OPTIONS_HIDDEN}) {
             print ("    <td".width($columns)." class=\"thumb_album\">\n");
             print ("     <a href=\"".uri_escape($self->{ENTRIES}[$n]->{DIRNAME})."/index.html\">\n");
-            print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".uri_escape($self->{ENTRIES}[$n]->{DIRNAME}).".jpg\" alt=\"".$title."\">\n");
+            print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".uri_escape($self->{ENTRIES}[$n]->{DIRNAME}).".jpg\" alt=\" zdjêcia ".$self->{ENTRIES}[$n]->{TITLE}."\">\n");
             if ($self->{ENTRIES}[$n]->{TITLE}) {
               print ("      <br>".$self->{ENTRIES}[$n]->{TITLE}."\n");
             }
@@ -845,7 +848,7 @@ sub generate_index {
         elsif ( $self->{ENTRIES}[$n]->{OBJECT} eq "link" ) {
             print ("    <td".width($columns)." class=\"thumb_album\">\n");
             print ("     <a href=\"".$self->{ENTRIES}[$n]->{LINK}."/index.html\">\n");
-            print ("      <img class=\"thumb_album\" src=\"".$self->{ENTRIES}[$n]->{HIGHLIGHT}.".jpg\" alt=\"".$title."\">\n");
+            print ("      <img class=\"thumb_album\" src=\"".$self->{ENTRIES}[$n]->{HIGHLIGHT}.".jpg\" alt=\"zdjêcia ".$self->{ENTRIES}[$n]->{TITLE}."\">\n");
             if ($self->{ENTRIES}[$n]->{TITLE}) {
               print ("      <br>".$self->{ENTRIES}[$n]->{TITLE}."\n");
             }
@@ -1028,7 +1031,7 @@ sub generate_image {
 
     print ("   <tr>\n");
     print ("    <td class=\"image\" colspan=\"2\">\n");
-    print ("     <img alt=\"image\" class=\"image\" src=\"".$self->{SETTINGS}->{IMAGES_DIR}."/".$image->{BASENAME}.".jpg\">\n");
+    print ("     <img alt=\"zdjêcie ".$title."\" class=\"image\" src=\"".$self->{SETTINGS}->{IMAGES_DIR}."/".$image->{BASENAME}.".jpg\">\n");
     print ("    </td>\n");
     print ("   </tr>\n");
     if (-f $self->{ENTRIES}[$n]->{FILENAME}.".txt") {
