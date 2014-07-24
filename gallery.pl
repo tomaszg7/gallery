@@ -7,6 +7,7 @@
 #    zawartosc tego pliku zostaje dopisana do stronki z ta konkretna fotka
 #  3)uwzglednia zmienna Footer
 #  4)zmienione parametry konwersji i rozmiar obrazka
+#  5)odwrotna numeracja katalogow. (todo: thumby albumow sa wciaz numerowane normalnie)
 
 use strict;
 
@@ -506,6 +507,8 @@ sub generate_index {
   print ("   </tr>\n");
 
   my $n = 0;
+  my $nn = $self->{N_ENTRIES};
+#  print("tomaszg debug nn:".$nn);
   ROWS: while ($n < $self->{N_ENTRIES}) {
     print ("   <tr>\n");
     COLS: for my $col (0 .. $columns-1) {
@@ -529,7 +532,7 @@ sub generate_index {
         }
         elsif ( $self->{ENTRIES}[$n]->{OBJECT} eq "album" ) {
           print ("    <td class=\"thumb_album\">\n");
-          print ("     <a href=\"".$n."/index.html\">\n");
+          print ("     <a href=\"".($nn-$n)."/index.html\">\n");
           print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".$n.".jpg\">\n");
           if ($self->{ENTRIES}[$n]->{TITLE}) {
             print ("      <br>\n");
@@ -573,6 +576,11 @@ sub generate_index {
   print ("    </td>\n");
   print ("   </tr>\n");
   print ("  </table>\n");
+    print ("  <br><center><script language=\"javascript\"><!-- \n var ipath=\'labfiz.uwb.edu.pl/~tomaszg/istats5\'\n");
+  print ("  document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\"  SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");
+      print ("  //-->\n");
+        print ("  </script></center>\n");
+
   print (" </body>\n");
   print ("</html>\n");
   print "\n";
@@ -692,8 +700,7 @@ sub generate_image {
   print ("   </tr>\n");
   print ("  </table>\n");
   print ("  <br><center><script language=\"javascript\"><!-- \n var ipath=\'labfiz.uwb.edu.pl/~tomaszg/istats5\'\n");
-  print ("  document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\"  
-    SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");
+  print ("  document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\" SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");
       print ("  //-->\n");
         print ("  </script></center>\n");
   print (" </body>\n");
@@ -788,7 +795,8 @@ $self->debug(5,"    Generating html for \"".$self->{ENTRIES}[$n]->{FILENAME}."\"
     }
     if ( $self->{ENTRIES}[$n]->{OBJECT} eq "album" ) {
       mkdir $n;
-      $self->{ENTRIES}[$n]->generate($directory."/".$n);
+#      $self->debug(1,"tomaszgdebug: ".$self->{N_ENTRIES});
+      $self->{ENTRIES}[$n]->generate($directory."/".($self->{N_ENTRIES}-$n));
       chdir $directory;
     }
   }
@@ -861,8 +869,8 @@ sub debug {
 ##########################################
 package main;
 
-my $settings = Settings->new("/mnt/q/Foto/muflon-gall/settings");
+my $settings = Settings->new("/mnt/q/Foto/gal/settings");
 #$settings->{FORCE_IMAGES} = "y";
 $settings->{DEBUG_LEVEL} = 5;
-my $album = Album->new("/mnt/q/Foto/muflon-gall", undef, $settings->clone(), 0);
-$album->generate("/mnt/q/Foto/muflon-gall/html");
+my $album = Album->new("/mnt/q/Foto/gal", undef, $settings->clone(), 0);
+$album->generate("/mnt/q/Foto/gal/html2");
