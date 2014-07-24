@@ -4,6 +4,8 @@
 #  skrypt muflona 
 #  przerobiony tak,ze: 
 
+# 1.5.3
+#  1. LOCAL_FOOTER
 # 1.5.2
 #  1. bug z zlym dzialanie thumb_quality
 # 1.5.1
@@ -138,6 +140,7 @@ sub new {
   $self->{TREE_SEPARATOR} = "&diams;";
 
   $self->{FOOTER} = "";
+  $self->{LOCAL_FOOTER} = undef;
   $self->{HEADER} = "&nbsp;";
   $self->{OPTIONS_EXIF} = undef;
   $self->{OPTIONS_NOCONV} = undef;
@@ -175,6 +178,7 @@ sub clone {
   my $self = shift;
   my $clone = { %$self }; 
   $clone->{CSS_FILE} = undef;
+  $clone->{LOCAL_FOOTER} = undef;
   $clone->{LOCAL_CSS_FILE} = undef;
   $clone->{ABOUT_FILE} = undef;
   $clone->{LOCAL_IMAGE_SIZE} = undef;
@@ -670,6 +674,8 @@ sub generate_index {
   print ("<html>\n");
   print (" <head>\n");
   print ("  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=".$self->{SETTINGS}->{CHARSET}."\">\n");
+  print ("  <meta name=\"revisit-after\" content=\"2 days\">\n");
+  print ("  <meta name=\"robots\" content=\"all\">\n");
   $self->print_meta_keywords_tag();
   $self->style_link();
   $self->rss_meta();
