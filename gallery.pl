@@ -115,6 +115,7 @@ sub new {
   $self->{LINK_RSS} = "RSS feed";
   $self->{RSS_FILE} = "rss.xml";
   $self->{TREE_SEPARATOR} = "&diams;";
+  $self->{EXIF_ICON} = "http://tomaszg.pl/foto/info2.gif";
 
   $self->{FOOTER} = "";
   $self->{LOCAL_FOOTER} = undef;
@@ -553,7 +554,7 @@ $self->debug(5,"    File: \"".$filename."\"");
         my $filename;
         my $title;
 	my $link;
-	if (/^(!)?(\@)?(.*);(.*)\S*/) {
+	if (/^(!)?(\@)?(.*?);(.*)\S*/) {
           $highlight = $1;
           $filename = $3;
           $title = $4;
@@ -996,7 +997,12 @@ sub generate_image {
 
     print ("   <tr>\n");
     print ("    <td class=\"image\" colspan=\"2\">\n");
+
+  if ($next_link >= 0) {
+    print ("     <a href=\"".uri_escape($self->{ENTRIES}[$next_link]->{BASENAME}).".html\"><img alt=\"zdjêcie ".$title."\" class=\"image\" src=\"".$self->{SETTINGS}->{IMAGES_DIR}."/".$image->{BASENAME}.".jpg\"></a>\n");
+  } else {
     print ("     <img alt=\"zdjêcie ".$title."\" class=\"image\" src=\"".$self->{SETTINGS}->{IMAGES_DIR}."/".$image->{BASENAME}.".jpg\">\n");
+  } 
     print ("    </td>\n");
     print ("   </tr>\n");
     if (-f $self->{ENTRIES}[$n]->{FILENAME}.".txt") {
@@ -1012,7 +1018,7 @@ sub generate_image {
 
     if ($image->{EXIF_STRING} && $self->{SETTINGS}->{OPTIONS_EXIF}) {
       print ("   <tr>\n");
-      print ("    <td class=\"exif\" colspan=\"2\">\n");
+      print ("    <td class=\"exif\" colspan=\"2\"><img src=\"".$self->{SETTINGS}->{EXIF_ICON}."\" alt=\"exif\"><br>\n");
       print ("     ".$image->{EXIF_STRING}."\n");
       print ("    </td>\n");
       print ("   </tr>\n");
