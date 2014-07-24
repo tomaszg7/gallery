@@ -125,7 +125,7 @@ sub new {
   $self->{OPTIONS_HIDDEN} = undef;
   $self->{OPTIONS_LEAF} = undef;
   $self->{FORCE_IMAGES} = undef;
-  $self->{DEBUG_LEVEL} = 1;
+  $self->{DEBUG_LEVEL} = 2;
   $self->{LENSES} = ();
   $self->{BANDS} = ();
   $self->{HIGHLIGHT} = "highlight.jpg";
@@ -808,7 +808,7 @@ sub generate_index {
              
 	  print ("   <tr><td colspan=\"2\"></td>\n");
 	  print ("    <td class=\"more_link\">\n");
-	  print ("    <span class=\"more_link\"><a href=\"".$self->{SETTINGS}->{MORE_LINK}."\">Wiêcej zdjêæ ".$self->{SETTINGS}->{MORE_NAME}."</a></span>\n");
+	  print ("    <span class=\"more_link\"><a href=\"".$self->{SETTINGS}->{MORE_LINK}."\"  target=\"_blank\">Wiêcej zdjêæ ".$self->{SETTINGS}->{MORE_NAME}."</a></span>\n");
 	  print ("    </td>\n");
 	  print ("   </tr>\n");
 	}
@@ -853,7 +853,7 @@ sub generate_index {
         }
         elsif ( $self->{ENTRIES}[$n]->{OBJECT} eq "link" ) {
             print ("    <td".width($columns)." class=\"thumb_album\">\n");
-            print ("     <a href=\"".$self->{ENTRIES}[$n]->{LINK}."\">\n");
+            print ("     <a href=\"".$self->{ENTRIES}[$n]->{LINK}."\"  target=\"_blank\">\n");
             print ("      <img class=\"thumb_album\" src=\"".$self->{ENTRIES}[$n]->{HIGHLIGHT}.".jpg\" alt=\"zdjêcia ".$self->{ENTRIES}[$n]->{TITLE}."\">\n");
             if ($self->{ENTRIES}[$n]->{TITLE}) {
               print ("      <br>".$self->{ENTRIES}[$n]->{TITLE}."\n");
