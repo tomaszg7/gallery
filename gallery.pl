@@ -661,8 +661,8 @@ $self->debug(5,"");
        my $nazwa;
       if ($self->{DIRNAME} =~ /^\d\d(\S.*)/)
         { $nazwa = $1; }
-      elsif ($self->{DIRNAME} =~ /(\S.*)\d/)
-        { $nazwa = $1; }
+#      elsif ($self->{DIRNAME} =~ /(\S.*)\d/) // ¶wiruje na ro20
+#        { $nazwa = $1; }
       else 
         { $nazwa = $self->{DIRNAME}; }
       if ($self->{SETTINGS}->{BANDS}{$nazwa})
