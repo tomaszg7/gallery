@@ -7,7 +7,11 @@
 #    zawartosc tego pliku zostaje dopisana do stronki z ta konkretna fotka
 #  3)uwzglednia zmienna Footer i header (desc)
 #  4)zmienione parametry konwersji i rozmiar obrazka
-#  5)zachowuje nazwy plikow i katalogow
+#  5)zachowuje nazwy plikow i katalogow oraz thumbow
+#  6)dziala prev/next
+#  7)poprawione data z exifa
+#  8)obok about tworzy statsy
+#  9)poprawione cache zgodnie z 5)
 
 use strict;
 
@@ -107,13 +111,13 @@ sub new {
   $self->{HIGHLIGHT} = "highlight.jpg";
   $self->{CSS_FILE} = undef;
   $self->{LOCAL_CSS_FILE} = undef;
-  $self->{IMAGE_SIZE} = "1000x700";
+  $self->{IMAGE_SIZE} = "950x700";
   $self->{LOCAL_IMAGE_SIZE} = undef;
-  $self->{THUMB_SIZE} = "210x140";
+  $self->{THUMB_SIZE} = "270x180";
   $self->{LOCAL_THUMB_SIZE} = undef;
   $self->{CONVERT_OPTIONS} = "-sharpen 3 -quality 90";
   $self->{LOCAL_CONVERT_OPTIONS} = undef;
-  $self->{COLUMNS} = 4;
+  $self->{COLUMNS} = 3;
   $self->{LOCAL_COLUMNS} = undef;
 
   bless $self;
@@ -153,7 +157,7 @@ sub new {
       $self->{CAMERA} = $1;
       $self->{CAMERA} =~ s/\s+$//;
     }
-    elsif (/0x0132\|(\d\d\d\d):(\d\d):(\d\d) (\d\d:\d\d)/) {
+    elsif (/0x9003\|(\d\d\d\d):(\d\d):(\d\d) (\d\d:\d\d)/) {
       $self->{DATE} = $3."-".$2."-".$1;
     }
     elsif (/0x829a\|(\S*)/) {
@@ -502,7 +506,7 @@ sub generate_index {
   print ("    <td class=\"nav_links\">\n");
   
   if (-f "about.html"){
-    print ("     <a href=\"about.html\">About ".$self->{TITLE}."</a>\n");
+    print ("  <a href=\"../cgi-bin/stats.cgi\">Most viewed</a>&nbsp;&nbsp;&nbsp;   <a href=\"about.html\">About ".$self->{TITLE}."</a>\n");
   }
   else{
   print ("      ".$self->{SETTINGS}->{LINK_PREV}."&nbsp;&nbsp;&nbsp;\n");
@@ -544,12 +548,15 @@ sub generate_index {
           next ROWS;
         }
         elsif ( $self->{ENTRIES}[$n]->{OBJECT} eq "album" ) {
+
+          my $nnn = `basename $self->{ENTRIES}[$n]->{HIGHLIGHT}->{FILENAME}`;
+
 	  my $nn = `basename $self->{ENTRIES}[$n]->{DIRECTORY}`;
 	    chomp $nn;
 #	    $self->debug(1,"tomaszg debug nn html: ".$nn);
           print ("    <td class=\"thumb_album\">\n");
           print ("     <a href=\"".$nn."/index.html\">\n");
-          print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".$nn.".jpg\">\n");
+          print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".$nnn.".jpg\">\n");
           if ($self->{ENTRIES}[$n]->{TITLE}) {
             print ("      <br>\n");
             print ("      ".$self->{ENTRIES}[$n]->{TITLE}."\n");
@@ -592,6 +599,11 @@ sub generate_index {
   print ("     ".$self->{SETTINGS}->{FOOTER}."\n");
   print ("    </td>\n");
   print ("   </tr>\n");
+#  print ("   <tr>\n");
+# print ("         <td colspan=2 class=footer>\n");
+#  print (" (c) 2005 Tomasz Golinski\n");
+#  print ("          </td>\n");
+#  print ("  	   </tr>\n");
   print ("  </table>\n");
   print ("  <br><center><script language=\"javascript\"><!-- \n var ipath=\'212.33.73.85/tomaszg/istats5\'\n");
   print ("  document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\" SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");
@@ -679,7 +691,7 @@ sub generate_image {
   if ($next_link >= 0) {
     my $tmp2 = `basename $self->{ENTRIES}[$n+1]->{FILENAME}`;
            chomp $tmp2;
-    print ("  <a href=\"".$tmp2.".html\">".$self->{SETTINGS}->{LINK_PREV}."</a>");
+    print ("  <a href=\"".$tmp2.".html\">".$self->{SETTINGS}->{LINK_NEXT}."</a>");
 
 #    print ("<a href=\"".$next_link.".html\">".$self->{SETTINGS}->{LINK_NEXT}."</a>\n");
   } else {
@@ -721,6 +733,11 @@ sub generate_image {
   print ("     ".$self->{SETTINGS}->{FOOTER}."\n");
   print ("    </td>\n");
   print ("   </tr>\n");
+#  print ("   <tr>\n");
+#  print ("         <td colspan=2 class=footer>\n");
+#  print (" (c) 2005 Tomasz Golinski\n");
+#  print ("          </td>\n");
+#  print ("  	   </tr>\n");
   print ("  </table>\n");
   print ("  <br><center><script language=\"javascript\"><!-- \n var ipath=\'212.33.73.85/tomaszg/istats5\'\n");
   print ("  document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\" SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");
@@ -740,7 +757,7 @@ sub generate {
 $self->debug(1,"Generating structure for \"".$self->{TITLE}."\"");
   mkdir $directory;
   chdir $directory;
-$self->debug(1,"tomaszg dir ".$directory);
+#$self->debug(1,"tomaszg dir ".$directory);
 
   mkdir $self->{SETTINGS}->{THUMBS_DIR};
   mkdir $self->{SETTINGS}->{IMAGES_DIR};
@@ -794,7 +811,7 @@ $self->debug(1,"    Copying ".$self->{SETTINGS}->{LOCAL_CSS_FILE}."");
       if ( !( -f $dest_thumb && -f $dest_image) || $self->{SETTINGS}->{FORCE_IMAGES} ) {
 $self->debug(5,"    Converting image (".$src_image.")");
         $do_convert = 1;
-      } elsif ( $thumb_cache->match($src_image, $n.".jpg", $thumb_size) && $image_cache->match($src_image, $n.".jpg", $image_size) ) {
+      } elsif ( $thumb_cache->match($src_image, $nn.".jpg", $thumb_size) && $image_cache->match($src_image, $nn.".jpg", $image_size) ) {
 $self->debug(5,"    Not converting existing and matching image (".$src_image.")");
       } else {
 $self->debug(5,"    Converting existing but out-of-date image (".$src_image.")");
@@ -803,8 +820,8 @@ $self->debug(5,"    Converting existing but out-of-date image (".$src_image.")")
       if ($do_convert) {
         system "convert ".$options_thumb." \"".$src_image."\" \"".$dest_thumb."\"";
         system "convert ".$options_image." \"".$src_image."\" \"".$dest_image."\"";
-        $thumb_cache->update($src_image, $n.".jpg", $thumb_size);
-        $image_cache->update($src_image, $n.".jpg", $image_size);
+        $thumb_cache->update($src_image, $nn.".jpg", $thumb_size);
+        $image_cache->update($src_image, $nn.".jpg", $image_size);
       }
     }
   }
