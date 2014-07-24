@@ -12,6 +12,7 @@ use File::Basename;
 use File::Compare;
 use File::Temp;
 use File::stat;
+use Getopt::Std;
 
 my $exifTool = new Image::ExifTool;
 
@@ -125,7 +126,7 @@ sub new {
   $self->{OPTIONS_HIDDEN} = undef;
   $self->{OPTIONS_LEAF} = undef;
   $self->{FORCE_IMAGES} = undef;
-  $self->{DEBUG_LEVEL} = 2;
+  $self->{DEBUG_LEVEL} = 1;
   $self->{LENSES} = ();
   $self->{BANDS} = ();
   $self->{HIGHLIGHT} = "highlight.jpg";
@@ -332,6 +333,7 @@ sub new {
   $self->{CONTAINS_ALBUMS} = undef;
   $self->{SETTINGS} = shift;
   $self->{NEST} = shift;
+  $self->{UPDATE} = shift;
   $self->{URL_PATH} = "";
   if ($self->{PARENT_ALBUM}) {
     if ($self->{PARENT_ALBUM}->{URL_PATH} ne "") {
@@ -543,9 +545,9 @@ $self->debug(2,"  Read THUMB_QUALITY: \"".$self->{SETTINGS}->{THUMB_QUALITY}."\"
 $self->debug(1,"  Including from mask: \"".$mask."\"");
 
         for my $filename (sort(glob($mask))) {
-          if ( -d $filename ) {
+          if ((-d $filename) && (($self->{UPDATE} eq undef) || ($self->{UPDATE} eq $filename))) {
 $self->debug(1,"    Directory: \"".$filename."\"");
-            my $album = Album->new($directory."/".$filename, $self, $self->{SETTINGS}->clone(), $self->{NEST}+3);
+            my $album = Album->new($directory."/".$filename, $self, $self->{SETTINGS}->clone(), $self->{NEST}+3,undef);
             push @{$self->{ENTRIES}}, $album;
             $self->{CONTAINS_ALBUMS} = "y";
             if ($album->{DATE}) {
@@ -554,6 +556,8 @@ $self->debug(1,"    Directory: \"".$filename."\"");
             if ($filename eq $self->{SETTINGS}->{HIGHLIGHT}) {
               $self->{HIGHLIGHT} = $album->{HIGHLIGHT};
             }
+          } elsif (-d $filename) {
+$self->debug(2,"    Skipping directory: \"".$filename."\" due to update mode.");
           } elsif ((-f $filename) && ($filename ne $self->{SETTINGS}->{DATAFILE}) && ($filename ne $css_basename) && ($filename ne $local_css_basename) && !($filename =~ /txt$/)) {
 $self->debug(5,"    File: \"".$filename."\"");
             my $image = Image->new($directory."/".$filename, undef, %$self->{SETTINGS});
@@ -597,8 +601,9 @@ $self->debug(5,"    File: \"".$filename."\"");
           if ($highlight eq "!") {
             $self->{HIGHLIGHT} = $link->{HIGHLIGHT};
           }
-	} elsif ( -d $filename ) {
-          my $album = Album->new($directory."/".$filename, $self, $self->{SETTINGS}->clone(), $self->{NEST}+1);
+	} elsif ((-d $filename) && (($self->{UPDATE} eq undef) || ($self->{UPDATE} eq $filename))) {
+#$self->debug(2,"       u=".$self->{UPDATE}.", f=".$filename);
+          my $album = Album->new($directory."/".$filename, $self, $self->{SETTINGS}->clone(), $self->{NEST}+1,undef);
           push @{$self->{ENTRIES}}, $album;
           $self->{CONTAINS_ALBUMS} = "y";
           if ($album->{DATE}) {
@@ -607,6 +612,8 @@ $self->debug(5,"    File: \"".$filename."\"");
           if ($highlight eq "!") {
             $self->{HIGHLIGHT} = $album->{HIGHLIGHT};
           }
+          } elsif (-d $filename) {
+$self->debug(2,"    Skipping directory: \"".$filename."\" due to update mode.");
         } elsif ((-f $filename) && ($filename ne $self->{SETTINGS}->{DATAFILE}) && ($filename ne $css_basename) && ($filename ne $local_css_basename)) {
           my $image = Image->new($directory."/".$filename, $title, %$self->{SETTINGS});
           $image->{IMAGE_INDEX} = $self->{N_IMAGES};
@@ -685,7 +692,7 @@ sub add_all_directories {
   for my $filename (sort(glob("*"))) {
     if ( (-d $filename) && ($filename ne ".") && ($filename ne "..")) {
 $self->debug(1,"  Adding sub-directory \"".$filename."\"");
-      my $album = Album->new($directory."/".$filename, $self, $self->{SETTINGS}->clone(), $self->{NEST}+1);
+      my $album = Album->new($directory."/".$filename, $self, $self->{SETTINGS}->clone(), $self->{NEST}+1,undef);
       push @{$self->{ENTRIES}}, $album;
     }
   }
@@ -1100,7 +1107,19 @@ sub generate_image {
   sub generate {
     my $self = shift;
     my $directory = shift;
+    my $update = shift;
 
+    if ( $update ) {
+  $self->debug(1,"Skipping generating structure for \"".$self->{TITLE}."\" due to update mode");
+      for my $n (0 .. $self->{N_ENTRIES}-1) {
+        if (( $self->{ENTRIES}[$n]->{OBJECT} eq "album" ) && ($self->{ENTRIES}[$n]->{DIRNAME} eq $update)) {
+          mkdir $directory."/".$self->{ENTRIES}[$n]->{DIRNAME};
+          $self->{ENTRIES}[$n]->generate($directory."/".$self->{ENTRIES}[$n]->{DIRNAME},undef);
+          chdir $directory;
+        }
+      }
+      return;
+    }
   $self->debug(1,"Generating structure for \"".$self->{TITLE}."\"");
     mkdir $directory;
     chdir $directory;
@@ -1265,7 +1284,7 @@ $self->debug(5,"    Generating existing but out-of-date image (".$src_image.")")
   $thumb_cache->write("thumbs/.cache");
   $image_cache->write("images/.cache");
 
-$self->debug(1,"  Generating HTML");
+$self->debug(2,"  Generating HTML");
 $self->debug(5,"    Generating index.html");
 
   my $columns = $self->{SETTINGS}->{COLUMNS};
@@ -1290,7 +1309,7 @@ $self->debug(5,"    Generating html for \"".$self->{ENTRIES}[$n]->{FILENAME}."\"
     }
     if ( $self->{ENTRIES}[$n]->{OBJECT} eq "album" ) {
       mkdir $directory."/".$self->{ENTRIES}[$n]->{DIRNAME};
-      $self->{ENTRIES}[$n]->generate($directory."/".$self->{ENTRIES}[$n]->{DIRNAME});
+      $self->{ENTRIES}[$n]->generate($directory."/".$self->{ENTRIES}[$n]->{DIRNAME},undef);
       chdir $directory;
     }
   }
@@ -1552,18 +1571,25 @@ sub generate_rss {
 
 }
 
+my %opts;
+my $target;
+Getopt::Std::getopts('o:u:h', \%opts);
 
-
-if (!$ARGV[0]) {
-  print ("\nPlease specify target directory as a parameter.\n\n");
-  exit (1);
+if ($opts{'h'}){
+    die "Usage: [-o output_dir] [-u update_dir] [-h]\n";
 }
 
+my $update_dir=$opts{'u'};
 
-my $target = $ARGV[0];
+if ($opts{'h'}) {
+    $target = $opts{'o'};
+    } else {
+    $target = "html";
+    }
+
 mkdir $target;
 $target = Cwd::realpath($target);
-if ((!$target) || (! -d $target)) {
+if (! -d $target) {
   print ("\nPlease specify a valid target directory as a parameter.\n\n");
   exit (1);
 }
@@ -1571,9 +1597,11 @@ if ((!$target) || (! -d $target)) {
 my $settings = Settings->new();
 #$settings->{DEBUG_LEVEL} = 5;
 
-my $album = Album->new(Cwd::cwd(), undef, $settings->clone(), 0);
-$album->generate($target);
+my $album = Album->new(Cwd::cwd(), undef, $settings->clone(), 0, $update_dir);
+$album->generate($target,$update_dir);
 
-generate_rss($album, $target."/rss.xml");
+if (! $update_dir) {
+    generate_rss($album, $target."/rss.xml");
+}
 
 
