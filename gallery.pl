@@ -4,6 +4,8 @@
 #  skrypt muflona 
 #  przerobiony tak,ze: 
 
+# 1.5.1
+#  1. opcja ISTATS
 # 1.5.0
 #  upgrade do wersji sgallery-0.5, zmiany w stosunku do oryginalu:
 #   1. dodanie metering i EV do exifa dla innych aparatow niz 1D
@@ -144,7 +146,7 @@ sub new {
   $self->{CSS_FILE} = undef;
   $self->{LOCAL_CSS_FILE} = undef;
   $self->{ABOUT_FILE} = undef;
-  $self->{TABLE_WIDTH} = "970";
+  $self->{TABLE_WIDTH} = undef;
   $self->{IMAGE_SIZE} = "900x600";
   $self->{LOCAL_IMAGE_SIZE} = undef;
   $self->{ALBUM_SIZE} = "312x208";
@@ -160,6 +162,7 @@ sub new {
   $self->{IMAGE_QUALITY} = 90;
   $self->{THUMB_QUALITY} = 80;
   $self->{RSS_BASE} = undef;
+  $self->{ISTATS} = undef;
 
   bless $self;
 
@@ -454,12 +457,17 @@ $self->debug(1,"  Read META_KEYWORDS: \"".$self->{SETTINGS}->{META_KEYWORDS}."\"
         }
         elsif (/FOOTER:\s+(\S.*\S)\s*$/) {
           $self->{SETTINGS}->{FOOTER} = $1;
-#          chomp $self->{SETTINGS}->{FOOTER};
 $self->debug(1,"  Read FOOTER: \"".$self->{SETTINGS}->{FOOTER}."\"");
         }
       elsif (/HEADER:\s+(.+)/) {
         $self->{SETTINGS}->{HEADER} = $1;
+          chomp $self->{SETTINGS}->{HEADER};
 $self->debug(1,"  Read HEADER: \"".$self->{SETTINGS}->{HEADER}."\"");
+      }
+      elsif (/ISTATS:\s+(.+)/) {
+        $self->{SETTINGS}->{ISTATS} = $1;
+          chomp $self->{SETTINGS}->{ISTATS};
+$self->debug(1,"  Read ISTATS: \"".$self->{SETTINGS}->{ISTATS}."\"");
       }
         elsif (/GAMMA:\s+(\S.*)\s*$/) {
           $self->{SETTINGS}->{GAMMA} = $1;
@@ -778,6 +786,14 @@ sub generate_index {
   print ("   <tr>\n");
   print ("    <td".colspan($columns)." class=\"footer\">\n");
   print ("     ".$self->{SETTINGS}->{FOOTER}."<br>\n");
+  if ($self->{SETTINGS}->{ISTATS}) {
+   print ("    <script type=\"text/javascript\">\n");
+   print ("    <!-- \n");
+   print ("    var ipath=\'".$self->{SETTINGS}->{ISTATS}."\'\n");  
+   print ("    document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\" SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");  
+   print ("    //-->\n");
+   print ("    </script><br>\n");
+  }
   if ($self->about_link()) {
     if ($self->{SETTINGS}->{RSS_BASE}) {
       print ("     &nbsp;&nbsp;&diams;&nbsp;&nbsp;\n");
@@ -944,6 +960,14 @@ sub generate_image {
     print ("   <tr>\n");
     print ("    <td colspan=\"2\" class=\"footer\">\n");
     print ("     ".$self->{SETTINGS}->{FOOTER}."<br>\n");
+  if ($self->{SETTINGS}->{ISTATS}) {
+   print ("    <script type=\"text/javascript\">\n");
+   print ("    <!-- \n");
+   print ("    var ipath=\'".$self->{SETTINGS}->{ISTATS}."\'\n");  
+   print ("    document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\" SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");  
+   print ("    //-->\n");
+   print ("    </script><br>\n");
+  }
     if ($self->about_link()) {
       if ($self->{SETTINGS}->{RSS_BASE}) {
         print ("     &nbsp;&nbsp;&diams;&nbsp;&nbsp;\n");
