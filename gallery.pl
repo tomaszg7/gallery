@@ -1,34 +1,35 @@
 #!/usr/bin/perl
-#
-#  skrypt muflona
-#  przerobiony tak,ze:
 
-# 1.2.1
-# 1. zmienione opcje converta, zeby bylo szybciej
-# 1.2.0
-# 1. opcja no_convert
-# 2. dodanie metering i EV do exifa
-# 3. dodanie "alt" do tagow "img"
-# 4. dodany brakujacy chomp
-# 1.1.1
-# 1.  nie dodaje &nbsp jak nie ma HEADERA
-# 2.  godzina z exifa do daty
-# numer 1.1.0
-#  1)jesli w katalogu znajduje sie plik about.html to ZAMIAST Prev,Up,Next bedzie About Author
-#  2)jesli w katalogu znajduje sie plik nazwa_pliku_graficznego.txt (konczacego sie na txt) to 
-#    zawartosc tego pliku zostaje dopisana do strony z ta konkretna fotka
-#  3)uwzglednia zmienna Footer i header (desc)
-#  4)zmienione parametry konwersji i rozmiar obrazka
-#  5)zachowuje nazwy plikow i katalogow oraz thumbow
-#  6)dziala prev/next
-#  7)poprawione data z exifa
-#  8)obok about tworzy statsy
-#  9)poprawione cache zgodnie z 5)
-# 10)przerzucone ustawienia do pliku album.dat (TODO: sciezki tez)
-# 11)bug przy wczytywaniu convert_options i local_convert_options, footer
+# 
+#  skrypt muflona 
+#  przerobiony tak,ze: 
+
+# 1.5.0
+#  upgrade do wersji sgallery-0.5, zmiany w stosunku do oryginalu:
+#   1. dodanie metering i EV do exifa dla innych aparatow niz 1D
+#   2. jesli w katalogu znajduje sie plik about.html to ZAMIAST Prev,Up,Next bedzie About Author 
+#   3. jesli w katalogu znajduje sie plik nazwa_pliku_graficznego.txt (konczacego sie na txt) to  
+#      zawartosc tego pliku zostaje dopisana do strony z ta konkretna fotka 
+#   4. obok about tworzy statsy 
+#   5. dodanie "alt" do tagow "img" 
+#   6. godzina z exifa do daty 
+#   7. uwzglednia zmienna header
+#   8. nazwy  .jpg.html
+#   9. bug z noconv
 
 use strict;
+use Image::ExifTool;
+use Image::Magick;
+use URI::Escape;
+use Cwd;
+use DateTime;
+use File::Copy;
+use File::Basename;
+use File::Compare;
+use File::Temp;
+use File::stat;
 
+my $exifTool = new Image::ExifTool;
 
 ##########################################
 package Cache;
@@ -42,13 +43,14 @@ sub new {
 
   my $self = {};
   $self->{DATA} = {};
+  $self->{DIRTY} = undef;
   bless $self;
 
   if ( -f $filename ) {
     open (my $file, $filename);
     while (<$file>) {
-      if (/(.+)\t(.+)\t(.+)/) {
-        $self->{DATA}{$1} = $2."\t".$3;
+       if (/(.+)\t(.+)\t(.+)\t(.+)\t(.+)\t(.+)/) {
+         $self->{DATA}{$1} = $2."\t".$3."\t".$4."\t".$5."\t".$6;
         chomp $self->{DATA}{$1};
       }
     }
@@ -63,34 +65,47 @@ sub match {
   my $src_image = shift;
   my $local_image = shift;
   my $image_size = shift;
+  my $gamma = shift;
+  my $unsharp = shift;
+  my $quality = shift;
+  if (!$gamma) { $gamma = "undef"; }
+  if (!$unsharp) { $unsharp = "undef"; }
 
-  if ( ($self->{DATA}{$local_image} eq $src_image."\t".$image_size) ) {
+  if ( ($self->{DATA}{$local_image} eq $src_image."\t".$image_size."\t".$gamma."\t".$unsharp."\t".$quality) ) {
     return 1;
   } else {
     return undef;
   }
 }
 
+
 sub update {
   my $self = shift;
   my $src_image = shift;
   my $local_image = shift;
   my $image_size = shift;
+  my $gamma = shift;
+  my $unsharp = shift;
+  my $quality = shift;
+  if (!$gamma) { $gamma = "undef"; }
+  if (!$unsharp) { $unsharp = "undef"; }
 
-  $self->{DATA}{$local_image} = $src_image."\t".$image_size;
+  $self->{DATA}{$local_image} = $src_image."\t".$image_size."\t".$gamma."\t".$unsharp."\t".$quality;
+  $self->{DIRTY} = "y";
 }
 
 sub write {
   my $self = shift;
   my $filename = shift;
 
-  open FILE, ">$filename";
-  my $key;
-  foreach $key ( keys %{$self->{DATA}} ) {
-    print FILE $key."\t".$self->{DATA}{$key}."\n";
+  if ($self->{DIRTY}) {
+    open FILE, ">$filename";
+    my $key;
+    foreach $key ( keys %{$self->{DATA}} ) {
+      print FILE $key."\t".$self->{DATA}{$key}."\n";
+    }
+    close FILE;
   }
-  close FILE;
-  
 }
 
 
@@ -101,7 +116,6 @@ package Settings;
 
 sub new {
   shift;
-  my $filename = shift;
 
   my $self = {};
   # Not-modifiable through settings file
@@ -114,26 +128,38 @@ sub new {
   $self->{LINK_UP} = "Up";
   $self->{LINK_PREV} = "Previous";
   $self->{LINK_NEXT} = "Next";
+  $self->{LINK_ABOUT} = "About the author";
+  $self->{LINK_RSS} = "RSS feed";
+  $self->{RSS_FILE} = "rss.xml";
   $self->{TREE_SEPARATOR} = "&diams;";
-  $self->{FOOTER} = "&nbsp;";
-  $self->{HEADER} = "&nbsp;";
-  $self->{DESC} = "&nbsp;";
-  $self->{NO_CONVERT} = "n";
-  $self->{DISPLAY_EXIF} = "y";
-  $self->{FORCE_IMAGES} = undef;
-  $self->{DEBUG_LEVEL} = 9;
 
+  $self->{FOOTER} = "";
+  $self->{HEADER} = "&nbsp;";
+  $self->{OPTIONS_EXIF} = undef;
+  $self->{OPTIONS_NOCONV} = undef;
+  $self->{OPTIONS_HIDDEN} = undef;
+  $self->{FORCE_IMAGES} = undef;
+  $self->{LENSES} = ();
   $self->{HIGHLIGHT} = "highlight.jpg";
   $self->{CSS_FILE} = undef;
   $self->{LOCAL_CSS_FILE} = undef;
-  $self->{IMAGE_SIZE} = undef;
+  $self->{ABOUT_FILE} = undef;
+  $self->{TABLE_WIDTH} = "970";
+  $self->{IMAGE_SIZE} = "900x600";
   $self->{LOCAL_IMAGE_SIZE} = undef;
-  $self->{THUMB_SIZE} = undef;
+  $self->{ALBUM_SIZE} = "312x208";
+  $self->{LOCAL_ALBUM_SIZE} = undef;
+  $self->{THUMB_SIZE} = "231x154";
   $self->{LOCAL_THUMB_SIZE} = undef;
-  $self->{CONVERT_OPTIONS} = undef;
-  $self->{LOCAL_CONVERT_OPTIONS} = undef;
-  $self->{COLUMNS} = undef;
+  $self->{COLUMNS} = "auto";
   $self->{LOCAL_COLUMNS} = undef;
+  $self->{META_KEYWORDS} = "";
+  $self->{LOCAL_META_KEYWORDS} = "";
+  $self->{GAMMA} = undef;
+  $self->{UNSHARP} = undef;
+  $self->{IMAGE_QUALITY} = 90;
+  $self->{THUMB_QUALITY} = 80;
+  $self->{RSS_BASE} = undef;
 
   bless $self;
 
@@ -145,10 +171,13 @@ sub clone {
   my $clone = { %$self }; 
   $clone->{CSS_FILE} = undef;
   $clone->{LOCAL_CSS_FILE} = undef;
+  $clone->{ABOUT_FILE} = undef;
   $clone->{LOCAL_IMAGE_SIZE} = undef;
+  $clone->{LOCAL_ALBUM_SIZE} = undef;
   $clone->{LOCAL_THUMB_SIZE} = undef;
-  $clone->{LOCAL_CONVERT_OPTIONS} = undef;
   $clone->{LOCAL_COLUMNS} = undef;
+  $clone->{LOCAL_META_KEYWORDS} = undef;
+  $clone->{HIDDEN} = undef;
   bless $clone, ref $self;
 }
 
@@ -162,46 +191,70 @@ sub new {
   my $self = {};
   $self->{OBJECT} = "image";
   $self->{FILENAME} = shift;
+  $self->{BASENAME} = File::Basename::basename($self->{FILENAME},());
+  #File::Basename::basename($self->{FILENAME},('.jpg','.jpeg','.JPG','.JPEG'));
   $self->{TITLE} = shift;
   $self->{DATE} = undef;
+  my $settings = shift;
   bless $self;
 
-  open (EXIF, "exif -i \"".$self->{FILENAME}."\"|");
-  while (<EXIF>) {
-    if (/0x0110\|(.*)/) {
-      $self->{CAMERA} = $1;
-      $self->{CAMERA} =~ s/\s+$//;
-    }
-    elsif (/0x9003\|(\d\d\d\d):(\d\d):(\d\d) (\d\d:\d\d):\d\d/) {
-      $self->{DATE} = $3."-".$2."-".$1." ".$4;
-    }
-    elsif (/0x829a\|(\S*)/) {
-      $self->{SHUTTER_SPEED} = $1;
-    }
-    elsif (/0x829d\|(\S*)/) {
-      $self->{APERTURE} = $1;
-    }
-    elsif (/0x8827\|(\S*)/) {
-      $self->{ISO} = $1;
-    }
-    elsif (/0x9202\|(\S*)/) {
-      $self->{APERTURE} = $1;
-    }
-    elsif (/0x920a\|(\S*)/) {
-      $self->{FOCAL_LENGTH} = $1;
-    }
-    elsif (/0x9207\|(.*)/) {
-      $self->{METERING} = $1;
-    }
-    elsif (/0x9204\|(\S*)/) {
-      $self->{EXPOSURE} = $1;
-    }
-  }
-  close (EXIF);
+  my $info = $exifTool->ImageInfo($self->{FILENAME});
 
-  if ($self->{CAMERA} && $self->{DATE} && $self->{SHUTTER_SPEED} &&
-      $self->{APERTURE} && $self->{ISO} && $self->{FOCAL_LENGTH}) {
-    $self->{HAS_EXIF} = "y";
+  if ($$info{CreateDate}) {
+    $self->{DATE} = DateTime->new( year=>substr($$info{CreateDate},0,4),
+                                   month=>substr($$info{CreateDate},5,2),
+                                   day=>substr($$info{CreateDate},8,2),
+                                   hour=>substr($$info{CreateDate},11,2),
+                                   minute=>substr($$info{CreateDate},14,2),
+                                   second=>substr($$info{CreateDate},17,2),
+                                   nanosecond=>0, time_zone=>"floating");
+  }
+  if ($$info{Model}) {
+    my $exif = $$info{Model};
+    if ($$info{ShutterSpeed} && $$info{FocalLength} && $$info{Aperture}) {
+      if ($$info{'ISO (1)'}) { $exif .= ", ISO".$$info{'ISO (1)'}; }
+      elsif ($$info{'ISO'}) { $exif .= ", ISO".$$info{'ISO'}; }
+
+      if ($$info{ShutterSpeed}) { $exif .= ", ".$$info{ShutterSpeed}."s"; }
+      my $show_focal = 1;
+
+      if (($$info{ShortFocal} == $$info{LongFocal}) && ($$info{ShortFocal} >1)) {
+        $show_focal = undef;
+      }
+      $_ = $$info{ShortFocal}."-".$$info{LongFocal};
+
+      my $lens = $settings->{LENSES}{$$info{ShortFocal}."-".$$info{LongFocal}};
+      if ($lens) {
+        $exif .= "<br>".$lens." ";
+      } else {
+        $exif .= ", ";
+        $show_focal = 1;
+      }
+      if ($show_focal) { 
+        $_ = $$info{FocalLength};
+        if (/(.*)\..*/) {
+          $exif .= $1."mm";
+        }
+      }
+      if ($$info{Aperture}) { $exif .= ", f/".$$info{Aperture}; }
+
+      if ($$info{MeteringMode} && $$info{ExposureProgram}) {
+        $exif .= "<br>".$$info{ExposureProgram};
+        if ($$info{ExposureCompensation} != 0) {
+          $exif .= " (".$$info{ExposureCompensation}."EV)";
+        }
+        $exif .= ", ".$$info{MeteringMode}." metering";
+      }
+      elsif ($$info{MeteringMode} && $$info{CanonExposureMode}) {
+        $exif .= "<br>".$$info{CanonExposureMode};
+        $exif .= ", ".$$info{MeteringMode}." metering";
+        $exif .= " ".$$info{ExposureCompensation}."EV";
+      }
+
+
+
+    }
+    $self->{EXIF_STRING} = $exif;
   }
 
   return $self;
@@ -236,15 +289,24 @@ sub new {
   my $self = {};
   $self->{OBJECT} = "album";
   $self->{DIRECTORY} = $directory;
-  $self->{TITLE} = `basename "$directory"`;
-  chomp $self->{TITLE};
+  $self->{DIRNAME} = basename($directory);
+  $self->{TITLE}=$self->{DIRNAME};
   $self->{DATE} = undef;
   $self->{PARENT_ALBUM} = shift;
   $self->{ENTRIES} = ();
   $self->{N_ENTRIES} = 0;
   $self->{N_IMAGES} = 0;
+  $self->{CONTAINS_ALBUMS} = undef;
   $self->{SETTINGS} = shift;
   $self->{NEST} = shift;
+  $self->{URL_PATH} = "";
+  if ($self->{PARENT_ALBUM}) {
+    if ($self->{PARENT_ALBUM}->{URL_PATH} ne "") {
+      $self->{URL_PATH} = $self->{PARENT_ALBUM}->{URL_PATH}."/".$self->{DIRNAME};
+    } else {
+      $self->{URL_PATH} = $self->{DIRNAME};
+    }
+  }
   bless $self;
 
   $self->{INDENT} = "";
@@ -252,7 +314,7 @@ sub new {
     $self->{INDENT} = "  ".$self->{INDENT};
   }
 
-  my $pushd = `pwd`; chomp $pushd;
+  my $pushd = pwd();
   chdir $directory;
 
   my $css_basename = undef;
@@ -262,127 +324,197 @@ $self->debug(1,"Initializing new album in: \"".$directory."\"");
   if (open my $datafile, $self->{SETTINGS}->{DATAFILE}) {
     while (<$datafile>) {
       chomp;
-      if (/#(.*)/) {
-$self->debug(1,"  Skipping coment:  ".$1);
+      if (/^#(.*)/) {
+$self->debug(1,"  Skipping comment:  ".$1);
       }
-      elsif (/^TITLE:\s+(.+)/) {
-        $self->{TITLE} = $1;
+      elsif (/^[A-Z0-9_]+:.*/) {
+        if (/^TITLE:\s+(.+)/) {
+          $self->{TITLE} = $1;
 $self->debug(1,"  Read TITLE: \"".$self->{TITLE}."\"");
-      }
-      elsif (/^DATE:\s+(.+)/) {
-        $self->{DATE} = $1;
-$self->debug(1,"  Read DATE:  \"".$self->{DATE}."\"");
-      }
-      elsif (/^BREAK:\s?(.*)/) {
-        my $title = $1;
-        my $break = Break->new($title);
-        push @{$self->{ENTRIES}}, $break;
+        }
+        elsif (/^DATE:\s+(.+)/) {
+          $self->{DATE} = DateTime->new( year=>substr($1,6,4),
+                                         month=>substr($1,3,2),
+                                         day=>substr($1,0,2),
+                                         hour=>0, minute=>0, second=>0,
+                                         nanosecond=>0, time_zone=>"floating");
+$self->debug(1,"  Read custom DATE");
+        }
+        elsif (/^OPTIONS:\s+(.+)/) {
+          my(@options) = split(',',$1);
+          for (@options) {
+            if (/\s*noexif\s*/) {
+              $self->{SETTINGS}->{OPTIONS_EXIF} = undef;
+$self->debug(1,"  Disabled EXIF data display");
+            }
+            elsif (/\s*exif\s*/) {
+              $self->{SETTINGS}->{OPTIONS_EXIF} = "y";
+$self->debug(1,"  Enabled EXIF data display");
+            }
+            elsif (/\s*noconv\s*/) {
+              $self->{SETTINGS}->{OPTIONS_NOCONV} = "y";
+$self->debug(1,"  Enabled direct image copy");
+            }
+            elsif (/\s*conv\s*/) {
+              $self->{SETTINGS}->{OPTIONS_NOCONV} = undef;
+$self->debug(1,"  Disabled direct image copy");
+            }
+            elsif (/\s*hidden\s*/) {
+              $self->{SETTINGS}->{OPTIONS_HIDDEN} = "y";
+$self->debug(1,"  Hiding this album in the upper-level listing");
+            }
+          }
+        }
+        elsif (/^LENS:\s+(\S+)\s+(\S.*)/) {
+          $self->{SETTINGS}->{LENSES}{$1} = $2;
+$self->debug(1,"  Read lens: ".$1." == ".$2);
+        }
+        elsif (/^BREAK:\s?(.*)/) {
+          my $title = $1;
+          my $break = Break->new($title);
+          push @{$self->{ENTRIES}}, $break;
 $self->debug(1,"  Read BREAK: \"".$title."\"");
-      }
-      elsif (/LOCAL_CSS:\s+(.+)\s*/) {
-        $self->{SETTINGS}->{LOCAL_CSS_FILE} = $directory."/".$1;
+        }
+        elsif (/ABOUT:\s+(.+)\s*/) {
+          $self->{SETTINGS}->{ABOUT_FILE} = $directory."/".$1;
+$self->debug(1,"  Read ABOUT: \"".$self->{SETTINGS}->{ABOUT_FILE}."\"");
+          $css_basename = basename($self->{SETTINGS}->{ABOUT_FILE});
+        }
+        elsif (/LOCAL_CSS:\s+(.+)\s*/) {
+          $self->{SETTINGS}->{LOCAL_CSS_FILE} = $directory."/".$1;
 $self->debug(1,"  Read LOCAL_CSS: \"".$self->{SETTINGS}->{LOCAL_CSS_FILE}."\"");
-        $local_css_basename = `basename "$self->{SETTINGS}->{LOCAL_CSS_FILE}"`;
-        chomp $local_css_basename;
-      }
-      elsif (/CSS:\s+(.+)\s*/) {
-        $self->{SETTINGS}->{CSS_FILE} = $directory."/".$1;
+          $local_css_basename = basename($self->{SETTINGS}->{LOCAL_CSS_FILE});
+        }
+        elsif (/CSS:\s+(.+)\s*/) {
+          $self->{SETTINGS}->{CSS_FILE} = $directory."/".$1;
 $self->debug(1,"  Read CSS: \"".$self->{SETTINGS}->{CSS_FILE}."\"");
-        $css_basename = `basename "$self->{SETTINGS}->{CSS_FILE}"`;
-        chomp $css_basename;
-      }
-      elsif (/HIGHLIGHT:\s+(.+)\s*/) {
-        $self->{SETTINGS}->{HIGHLIGHT} = $1;
-        chomp $self->{SETTINGS}->{HIGHLIGHT};
+          $css_basename = basename($self->{SETTINGS}->{CSS_FILE});
+        }
+        elsif (/HIGHLIGHT:\s+(.+)\s*/) {
+          $self->{SETTINGS}->{HIGHLIGHT} = $1;
+          chomp $self->{SETTINGS}->{HIGHLIGHT};
 $self->debug(1,"  Read HIGHLIGHT: \"".$self->{SETTINGS}->{HIGHLIGHT}."\"");
-      }
-      elsif (/LOCAL_COLUMNS:\s+([123456789])\s*/) {
-        $self->{SETTINGS}->{LOCAL_COLUMNS} = $1;
+        }
+        elsif (/RSS_BASE:\s+(.+)\s*/) {
+          $self->{SETTINGS}->{RSS_BASE} = $1;
+          chomp $self->{SETTINGS}->{RSS_BASE};
+$self->debug(1,"  Read RSS_BASE: \"".$self->{SETTINGS}->{RSS_BASE}."\"");
+        }
+        elsif (/LOCAL_COLUMNS:\s+([123456789])\s*/) {
+          $self->{SETTINGS}->{LOCAL_COLUMNS} = $1;
 $self->debug(1,"  Read LOCAL_COLUMNS: \"".$self->{SETTINGS}->{LOCAL_COLUMNS}."\"");
-      }
-      elsif (/COLUMNS:\s+([123456789])\s*/) {
-        $self->{SETTINGS}->{COLUMNS} = $1;
+        }
+        elsif (/TABLE_WIDTH:\s+([0123456789]*)\s*/) {
+          $self->{SETTINGS}->{TABLE_WIDTH} = $1;
+$self->debug(1,"  Read TABLE_WIDTH: \"".$self->{SETTINGS}->{TABLE_WIDTH}."\"");
+        }
+        elsif (/COLUMNS:\s+([123456789])\s*/) {
+          $self->{SETTINGS}->{COLUMNS} = $1;
 $self->debug(1,"  Read COLUMNS: \"".$self->{SETTINGS}->{COLUMNS}."\"");
-      }
-      elsif (/FOOTER:\s+(.+)/) {
-        $self->{SETTINGS}->{FOOTER} = $1;
+        }
+        elsif (/LOCAL_IMAGE_SIZE:\s+(\S*)\s*/) {
+          $self->{SETTINGS}->{LOCAL_IMAGE_SIZE} = $1;
+          chomp $self->{SETTINGS}->{LOCAL_IMAGE_SIZE};
+$self->debug(1,"  Read LOCAL_IMAGE_SIZE: \"".$self->{SETTINGS}->{LOCAL_IMAGE_SIZE}."\"");
+        }
+        elsif (/IMAGE_SIZE:\s+(\S*)\s*/) {
+          $self->{SETTINGS}->{IMAGE_SIZE} = $1;
+          chomp $self->{SETTINGS}->{IMAGE_SIZE};
+$self->debug(1,"  Read IMAGE_SIZE: \"".$self->{SETTINGS}->{IMAGE_SIZE}."\"");
+        }
+        elsif (/LOCAL_ALBUM_SIZE:\s+(\S*)\s*/) {
+          $self->{SETTINGS}->{LOCAL_ALBUM_SIZE} = $1;
+          chomp $self->{SETTINGS}->{LOCAL_ALBUM_SIZE};
+$self->debug(1,"  Read LOCAL_ALBUM_SIZE: \"".$self->{SETTINGS}->{LOCAL_ALBUM_SIZE}."\"");
+        }
+        elsif (/ALBUM_SIZE:\s+(\S*)\s*/) {
+          $self->{SETTINGS}->{ALBUM_SIZE} = $1;
+          chomp $self->{SETTINGS}->{ALBUM_SIZE};
+$self->debug(1,"  Read ALBUM_SIZE: \"".$self->{SETTINGS}->{ALBUM_SIZE}."\"");
+        }
+        elsif (/LOCAL_THUMB_SIZE:\s+(\S*)\s*/) {
+          $self->{SETTINGS}->{LOCAL_THUMB_SIZE} = $1;
+          chomp $self->{SETTINGS}->{LOCAL_THUMB_SIZE};
+$self->debug(1,"  Read LOCAL_THUMB_SIZE: \"".$self->{SETTINGS}->{LOCAL_THUMB_SIZE}."\"");
+        }
+        elsif (/THUMB_SIZE:\s+(\S*)\s*/) {
+          $self->{SETTINGS}->{THUMB_SIZE} = $1;
+          chomp $self->{SETTINGS}->{THUMB_SIZE};
+$self->debug(1,"  Read THUMB_SIZE: \"".$self->{SETTINGS}->{THUMB_SIZE}."\"");
+        }
+        elsif (/LOCAL_META_KEYWORDS:\s+(\S.*)\s*$/) {
+          $self->{SETTINGS}->{LOCAL_META_KEYWORDS} = $1;
+          chomp $self->{SETTINGS}->{LOCAL_META_KEYWORDS};
+$self->debug(1,"  Read LOCAL_META_KEYWORDS: \"".$self->{SETTINGS}->{LOCAL_META_KEYWORDS}."\"");
+        }
+        elsif (/META_KEYWORDS:\s+(\S.*)\s*$/) {
+          $self->{SETTINGS}->{META_KEYWORDS} = $1;
+          chomp $self->{SETTINGS}->{META_KEYWORDS};
+$self->debug(1,"  Read META_KEYWORDS: \"".$self->{SETTINGS}->{META_KEYWORDS}."\"");
+        }
+        elsif (/FOOTER:\s+(\S.*\S)\s*$/) {
+          $self->{SETTINGS}->{FOOTER} = $1;
+#          chomp $self->{SETTINGS}->{FOOTER};
 $self->debug(1,"  Read FOOTER: \"".$self->{SETTINGS}->{FOOTER}."\"");
-      }
+        }
       elsif (/HEADER:\s+(.+)/) {
         $self->{SETTINGS}->{HEADER} = $1;
 $self->debug(1,"  Read HEADER: \"".$self->{SETTINGS}->{HEADER}."\"");
       }
-      elsif (/DESC:\s+(.+)/) {
-        $self->{SETTINGS}->{DESC} = $1;
-$self->debug(1,"  Read DESC: \"".$self->{SETTINGS}->{DESC}."\"");
-      }
-      elsif (/NO_CONVERT:\s+(.+)/) {
-        $self->{SETTINGS}->{NO_CONVERT} = $1;
-$self->debug(1,"  Read NO_CONVERT: \"".$self->{SETTINGS}->{NO_CONVERT}."\"");
-      }
-      elsif (/LOCAL_IMAGE_SIZE:\s+(\S*)\s*/) {
-        $self->{SETTINGS}->{LOCAL_IMAGE_SIZE} = $1;
-        chomp $self->{SETTINGS}->{LOCAL_IMAGE_SIZE};
-$self->debug(1,"  Read LOCAL_IMAGE_SIZE: \"".$self->{SETTINGS}->{LOCAL_IMAGE_SIZE}."\"");
-      }
-      elsif (/IMAGE_SIZE:\s+(\S*)\s*/) {
-        $self->{SETTINGS}->{IMAGE_SIZE} = $1;
-        chomp $self->{SETTINGS}->{IMAGE_SIZE};
-$self->debug(1,"  Read IMAGE_SIZE: \"".$self->{SETTINGS}->{IMAGE_SIZE}."\"");
-      }
-      elsif (/LOCAL_THUMB_SIZE:\s+(\S*)\s*/) {
-        $self->{SETTINGS}->{LOCAL_THUMB_SIZE} = $1;
-        chomp $self->{SETTINGS}->{LOCAL_THUMB_SIZE};
-$self->debug(1,"  Read LOCAL_THUMB_SIZE: \"".$self->{SETTINGS}->{LOCAL_THUMB_SIZE}."\"");
-      }
-      elsif (/THUMB_SIZE:\s+(\S*)\s*/) {
-        $self->{SETTINGS}->{THUMB_SIZE} = $1;
-        chomp $self->{SETTINGS}->{THUMB_SIZE};
-$self->debug(1,"  Read THUMB_SIZE: \"".$self->{SETTINGS}->{THUMB_SIZE}."\"");
-      }
-      elsif (/^LOCAL_CONVERT_OPTIONS:\s+(.+)/) {
-#      elsif (/LOCAL_CONVERT_OPTIONS:\s+(\S*)\s*/) {
-        $self->{SETTINGS}->{LOCAL_CONVERT_OPTIONS} = $1;
-        chomp $self->{SETTINGS}->{LOCAL_CONVERT_OPTIONS};
-$self->debug(1,"  Read LOCAL_CONVERT_OPTIONS: \"".$self->{SETTINGS}->{LOCAL_CONVERT_OPTIONS}."\"");
-      }
-      elsif (/^TITLE:\s+(.+)/) {
-        $self->{TITLE} = $1;
-$self->debug(1,"  Read TITLE: \"".$self->{TITLE}."\"");
-      }
-#      elsif (/CONVERT_OPTIONS:\s+(\S*)\s*/) {
-      elsif (/^CONVERT_OPTIONS:\s+(.+)/) {
-        $self->{SETTINGS}->{CONVERT_OPTIONS} = $1;
-        chomp $self->{SETTINGS}->{CONVERT_OPTIONS};
-$self->debug(1,"  Read CONVERT_OPTIONS: \"".$self->{SETTINGS}->{CONVERT_OPTIONS}."\"");
+        elsif (/GAMMA:\s+(\S.*)\s*$/) {
+          $self->{SETTINGS}->{GAMMA} = $1;
+          chomp $self->{SETTINGS}->{GAMMA};
+$self->debug(1,"  Read GAMMA: \"".$self->{SETTINGS}->{GAMMA}."\"");
+        }
+        elsif (/UNSHARP:\s+(\S.*)\s*$/) {
+          $self->{SETTINGS}->{UNSHARP} = $1;
+          chomp $self->{SETTINGS}->{UNSHARP};
+$self->debug(1,"  Read UNSHARP: \"".$self->{SETTINGS}->{UNSHARP}."\"");
+        }
+        elsif (/IMAGE_QUALITY:\s+(\S.*)\s*$/) {
+          $self->{SETTINGS}->{IMAGE_QUALITY} = $1;
+          chomp $self->{SETTINGS}->{IMAGE_QUALITY};
+$self->debug(1,"  Read IMAGE_QUALITY: \"".$self->{SETTINGS}->{IMAGE_QUALITY}."\"");
+        }
+        elsif (/THUMB_QUALITY:\s+(\S.*)\s*$/) {
+          $self->{SETTINGS}->{THUMB_QUALITY} = $1;
+          chomp $self->{SETTINGS}->{THUMB_QUALITY};
+$self->debug(1,"  Read THUMB_QUALITY: \"".$self->{SETTINGS}->{THUMB_QUALITY}."\"");
+        }
+
       }
       elsif (/\+(.+)\s*/) {
         my $mask = $1; chomp $mask;
 $self->debug(1,"  Including from mask: \"".$mask."\"");
-        open (my $list, "ls -d $mask|sort|");
-        while (<$list>) {
-          my $filename = $_; chomp $filename;
+
+        for my $filename (sort(glob($mask))) {
           if ( -d $filename ) {
 $self->debug(1,"    Directory: \"".$filename."\"");
             my $album = Album->new($directory."/".$filename, $self, $self->{SETTINGS}->clone(), $self->{NEST}+3);
             push @{$self->{ENTRIES}}, $album;
+            $self->{CONTAINS_ALBUMS} = "y";
+            if ($album->{DATE}) {
+              $self->update_date_if_newer($album->{DATE});
+            }
             if ($filename eq $self->{SETTINGS}->{HIGHLIGHT}) {
               $self->{HIGHLIGHT} = $album->{HIGHLIGHT};
             }
           } elsif ((-f $filename) && ($filename ne $self->{SETTINGS}->{DATAFILE}) && ($filename ne $css_basename) && ($filename ne $local_css_basename) && !($filename =~ /txt$/)) {
 $self->debug(5,"    File: \"".$filename."\"");
-            my $image = Image->new($directory."/".$filename, undef);
+            my $image = Image->new($directory."/".$filename, undef, %$self->{SETTINGS});
             $image->{IMAGE_INDEX} = $self->{N_IMAGES};
             $self->{N_IMAGES}++;
             push @{$self->{ENTRIES}}, $image;
+            if ($image->{DATE}) {
+              $self->update_date_if_newer($image->{DATE});
+            }
             if ($filename eq $self->{SETTINGS}->{HIGHLIGHT}) {
               $self->{HIGHLIGHT} = $image;
             }
           }
         }
-        close ($list);
       }
-      else {
+      elsif (/\s*\S.*/) {
         my $highlight;
         my $filename;
         my $title;
@@ -404,14 +536,21 @@ $self->debug(5,"    File: \"".$filename."\"");
         if ( -d $filename ) {
           my $album = Album->new($directory."/".$filename, $self, $self->{SETTINGS}->clone(), $self->{NEST}+1);
           push @{$self->{ENTRIES}}, $album;
+          $self->{CONTAINS_ALBUMS} = "y";
+          if ($album->{DATE}) {
+            $self->update_date_if_newer($album->{DATE});
+          }
           if ($highlight eq "!") {
             $self->{HIGHLIGHT} = $album->{HIGHLIGHT};
           }
         } elsif ((-f $filename) && ($filename ne $self->{SETTINGS}->{DATAFILE}) && ($filename ne $css_basename) && ($filename ne $local_css_basename)) {
-          my $image = Image->new($directory."/".$filename, $title);
+          my $image = Image->new($directory."/".$filename, $title, %$self->{SETTINGS});
           $image->{IMAGE_INDEX} = $self->{N_IMAGES};
           $self->{N_IMAGES}++;
           push @{$self->{ENTRIES}}, $image;
+          if ($image->{DATE}) {
+            $self->update_date_if_newer($image->{DATE});
+          }
           if ($highlight eq "!") {
             $self->{HIGHLIGHT} = $image;
           }
@@ -463,19 +602,16 @@ sub add_all_directories {
   my $self = shift;
   my $directory = shift;
 
-  my $pushd = `pwd`; chomp $pushd;
+  my $pushd = pwd();
   chdir $directory;
 
-  open (my $dir, "ls -d *|sort|");
-  while (<$dir>) {
-    my $filename = $_; chomp $filename;
+  for my $filename (sort(glob("*"))) {
     if ( (-d $filename) && ($filename ne ".") && ($filename ne "..")) {
 $self->debug(1,"  Adding sub-directory \"".$filename."\"");
       my $album = Album->new($directory."/".$filename, $self, $self->{SETTINGS}->clone(), $self->{NEST}+1);
       push @{$self->{ENTRIES}}, $album;
     }
   }
-  close $dir;
 
   chdir $pushd;
 }
@@ -484,26 +620,24 @@ sub add_all_files {
   my $self = shift;
   my $directory = shift;
 
-  my $pushd = `pwd`; chomp $pushd;
+  my $pushd = pwd();
   chdir $directory;
 
-  open (my $dir, "ls -d *|sort|");
-  while (<$dir>) {
-    my $filename = $_; chomp $filename;
-    if ((-f $filename) && (substr($filename,0,1) ne ".") && !($filename =~ /txt$/)) {
+  for my $filename (sort(glob("*"))) {
+    if ((-f $filename) && (substr($filename,0,1) ne ".")) {
 $self->debug(5,"  Adding image \"".$filename."\"");
-      my $image = Image->new($directory."/".$filename, undef);
+      my $image = Image->new($directory."/".$filename, undef, %$self->{SETTINGS});
       $image->{IMAGE_INDEX} = $self->{N_IMAGES};
       $self->{N_IMAGES}++;
       push @{$self->{ENTRIES}}, $image;
     }
   }
-  close $dir;
   chdir $pushd;
 }
 
 sub generate_index {
   my $self = shift;
+  my $columns = shift;
 
   open my $oldout, ">&STDOUT";
 
@@ -511,60 +645,84 @@ sub generate_index {
   if ($self->{TITLE}) {
     $title = $self->{TITLE};
   }
-  my $columns = $self->{SETTINGS}->{COLUMNS};
-  if ($self->{SETTINGS}->{LOCAL_COLUMNS}) {
-    $columns = $self->{SETTINGS}->{LOCAL_COLUMNS};
+
+  my $date = $self->{DATE};
+  if ($date) {
+    $date = $date->strftime("%e-%m-%Y");
+  } else {
+    $date = "&nbsp;";
   }
 
-  open STDOUT,">index.html";
+  my $tmpnam = File::Temp::tmpnam();
+
+  open STDOUT,">".$tmpnam;
+  print ("<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n");
   print ("<html>\n");
   print (" <head>\n");
   print ("  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=".$self->{SETTINGS}->{CHARSET}."\">\n");
+  $self->print_meta_keywords_tag();
   $self->style_link();
+  $self->rss_meta();
+  if ($self->{PARENT_ALBUM}) {
+    print ("  <link rel=\"Contents\" href=\"../index.html\">\n");
+  }
   print ("  <title>".$title."</title>\n");
+  print ("  <script type=\"text/javascript\">\n");
+  print ("    <!--\n");
+  print ("      function getKey(event) {\n");
+  print ("        if (!event) event = window.event;\n");
+  print ("        if (event.keyCode) code = event.keyCode;\n");
+  print ("        else if (event.which) code = event.which;\n");
+  print ("        if (event.shiftKey) {\n");
+  if ($self->{PARENT_ALBUM}) {
+    print ("          if (code == 38) {\n");
+    print ("            document.location = '../index.html';\n");
+    print ("          }\n");
+  }
+  print ("        }\n");
+  print ("        return true;\n");
+  print ("      }\n");
+  print ("      document.onkeypress = getKey;\n");
+  print ("    // -->\n");
+  print ("  </script>\n");
   print (" </head>\n");
   print (" <body>\n");
-  if ($self->{SETTINGS}->{HEADER} ne "&nbsp;"){
-  print ($self->{SETTINGS}->{HEADER}."\n");}
-  print ("  <table cellspacing=\"0\">\n");
+  if ($self->{SETTINGS}->{HEADER} ne "&nbsp;"){ 
+  print ($self->{SETTINGS}->{HEADER}."\n");} 
+  print ("  <table style=\"width: ".$self->{SETTINGS}->{TABLE_WIDTH}."px;\" cellspacing=\"0\">\n");
   print ("   <tr>\n");
   print ("    <td".colspan($columns-1)." class=\"title\">".$title."</td>\n");
-  print ("    <td class=\"date\">".$self->{DATE}."</td>\n");
+  print ("    <td class=\"date\">".$date."</td>\n");
   print ("   </tr>\n");
   print ("   <tr>\n");
   print ("    <td".colspan($columns-1)." class=\"parent_links\">\n");
   $self->print_parent_links(0, "n");
   print ("    </td>\n");
   print ("    <td class=\"nav_links\">\n");
-  
-  if (-f "about.html"){
+  if ( -f "about.html"){ 
     print ("  <a href=\"../cgi-bin/stats.cgi\">Most viewed</a>&nbsp;&nbsp;&nbsp;   <a href=\"about.html\">About ".$self->{TITLE}."</a>\n");
-  }
+    } 
   else{
-  print ("      ".$self->{SETTINGS}->{LINK_PREV}."&nbsp;&nbsp;&nbsp;\n");
+  print ("     ".$self->{SETTINGS}->{LINK_PREV}."&nbsp;&nbsp;&nbsp;");
   if ($self->{PARENT_ALBUM}) {
-    print ("     <a href=\"../index.html\">".$self->{SETTINGS}->{LINK_UP}."</a>\n");
+    print ("<a href=\"../index.html\">".$self->{SETTINGS}->{LINK_UP}."</a>");
   } else {
-    print ("     ".$self->{SETTINGS}->{LINK_UP}."\n");
+    print ($self->{SETTINGS}->{LINK_UP});
   }
-  print ("      &nbsp;&nbsp;&nbsp;".$self->{SETTINGS}->{LINK_NEXT}."\n");
+  print ("&nbsp;&nbsp;&nbsp;".$self->{SETTINGS}->{LINK_NEXT}."\n");
   }
-  
   print ("    </td>\n");
   print ("   </tr>\n");
-  
-  if ($self->{SETTINGS}->{DESC}){ 
-  print ("    <tr><td colspan=$columns align=center class=\"td.title\">".$self->{SETTINGS}->{DESC}."</td></tr>\n");
-  }
 
   my $n = 0;
   ROWS: while ($n < $self->{N_ENTRIES}) {
     print ("   <tr>\n");
-    COLS: for my $col (0 .. $columns-1) {
+    my $col = 0;
+    COLS: while ($col < $columns) {
       if ($self->{ENTRIES}[$n]) {
         if ( $self->{ENTRIES}[$n]->{OBJECT} eq "break" ) {
           if ($col > 0) {
-            print ("    <td".colspan($columns - $col)." class=\"thumb_empty\">&nbsp;</td>\n");
+            print ("    <td ".width($columns)." ".colspan($columns - $col)." class=\"thumb_empty\">&nbsp;</td>\n");
             print ("   </tr>\n");
             print ("   <tr>\n");
           }
@@ -580,32 +738,26 @@ sub generate_index {
           next ROWS;
         }
         elsif ( $self->{ENTRIES}[$n]->{OBJECT} eq "album" ) {
-
-          my $nnn = `basename $self->{ENTRIES}[$n]->{HIGHLIGHT}->{FILENAME}`;
-
-	  my $nn = `basename $self->{ENTRIES}[$n]->{DIRECTORY}`;
-	    chomp $nn;
-	    chomp $nnn;
-#	    $self->debug(1,"tomaszg debug nn html: ".$nn);
-          print ("    <td class=\"thumb_album\">\n");
-          print ("     <a href=\"".$nn."/index.html\">\n");
-          print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".$nnn.".jpg\" alt=\"album\">\n");
-          if ($self->{ENTRIES}[$n]->{TITLE}) {
-            print ("      <br>\n");
-            print ("      ".$self->{ENTRIES}[$n]->{TITLE}."\n");
-          }
-          print ("     </a>\n");
-          print ("    </td>\n");
+          if (!$self->{ENTRIES}[$n]->{SETTINGS}->{OPTIONS_HIDDEN}) {
+            print ("    <td".width($columns)." class=\"thumb_album\">\n");
+            print ("     <a href=\"".uri_escape($self->{ENTRIES}[$n]->{DIRNAME})."/index.html\">\n");
+            print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".uri_escape($self->{ENTRIES}[$n]->{DIRNAME}).".jpg\" alt=\"".$title."\">\n");
+	    if ($self->{ENTRIES}[$n]->{TITLE}) {
+              print ("      <br>".$self->{ENTRIES}[$n]->{TITLE}."\n");
+            }
+            print ("     </a>\n");
+            print ("    </td>\n");
+          } else {
+            $col--;
+	  }
           $n++;
         }
         elsif ( $self->{ENTRIES}[$n]->{OBJECT} eq "image" ) {
-      my $nn = `basename $self->{ENTRIES}[$n]->{FILENAME}`; chomp $nn;	  
-          print ("    <td class=\"thumb_image\">\n");
-          print ("     <a href=\"".$nn.".html\">\n");
-          print ("      <img class=\"thumb_image\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".$nn.".jpg\" alt=\"thumb\">\n");
+          print ("    <td".width($columns)." class=\"thumb_image\">\n");
+          print ("     <a href=\"".uri_escape($self->{ENTRIES}[$n]->{BASENAME}).".html\">\n");
+          print ("      <img alt=\"image\" class=\"thumb_image\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".uri_escape($self->{ENTRIES}[$n]->{BASENAME})."\">\n");
           if ($self->{ENTRIES}[$n]->{TITLE}) {
-            print ("      <br>\n");
-            print ("      ".$self->{ENTRIES}[$n]->{TITLE}."\n");
+            print ("      <br>".$self->{ENTRIES}[$n]->{TITLE}."\n");
           }
           print ("     </a>\n");
           print ("    </td>\n");
@@ -613,53 +765,54 @@ sub generate_index {
         }
       } elsif ($n >= $self->{N_ENTRIES}) {
         print ("    <td".colspan($columns - $col)." class=\"thumb_empty\">&nbsp;</td>\n");
-        last COLS;
+        $col = $columns;
       } else {
         print ("    <td class=\"thumb_empty\">&nbsp;</td>\n");
         $n++;
       }
       
+      $col++;
     }
     print ("   </tr>\n");
   }
   print ("   <tr>\n");
-  for my $col (0 .. $columns-1) {
-    printf ("    <td width=\"%d%%\">\n", 100/$columns);
-  }
-  print ("   </tr>\n");
-  print ("   <tr>\n");
   print ("    <td".colspan($columns)." class=\"footer\">\n");
-  print ("     ".$self->{SETTINGS}->{FOOTER}."\n");
+  print ("     ".$self->{SETTINGS}->{FOOTER}."<br>\n");
+  if ($self->about_link()) {
+    if ($self->{SETTINGS}->{RSS_BASE}) {
+      print ("     &nbsp;&nbsp;&diams;&nbsp;&nbsp;\n");
+    }
+  }
+  $self->rss_link();
   print ("    </td>\n");
   print ("   </tr>\n");
-  print ("   <tr>\n");
-#  print ("         <td colspan=2 class=footer>\n");
-#  print (" (c) 2005 Tomasz Golinski\n");
-#  print ("          </td>\n");
-#  print ("  	   </tr>\n");
   print ("  </table>\n");
-  print ("  <br><center><script language=\"javascript\"><!-- \n var ipath=\'212.33.73.85/tomaszg/istats5\'\n");
-  print ("  document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\" SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");
-      print ("  //-->\n");
-        print ("  </script></center>\n");
-
   print (" </body>\n");
   print ("</html>\n");
   print "\n";
   close STDOUT;
-
   open STDOUT, ">&", $oldout;
+
+  compare_and_copy($tmpnam, "index.html");
+  unlink ($tmpnam);
+
 }
 
 
 sub generate_image {
   my $self = shift;
   my $n = shift;
+  my $columns = shift;
   my $image = $self->{ENTRIES}[$n];
 
   my $date = $self->{DATE};
   if ($image->{DATE}) {
     $date = $image->{DATE};
+  }
+  if ($date) {
+    $date = $date->strftime("%e-%m-%Y %k:%M");
+  } else {
+    $date = "&nbsp;";
   }
 
   my $prev_link = $n-1;
@@ -690,203 +843,328 @@ sub generate_image {
     $title = $self->{TITLE};
   }
 
-  my $nn = `basename $image->{FILENAME}`; chomp $nn;	  
-
   open my $oldout, ">&STDOUT";
-  open STDOUT,">".$nn.".html";
+  my $tmpnam = File::Temp::tmpnam();
+  open STDOUT,">".$tmpnam;
+
+  print ("<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n");
   print ("<html>\n");
   print (" <head>\n");
   print ("  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=".$self->{SETTINGS}->{CHARSET}."\">\n");
-  $self->style_link();
-  print ("  <title>".$title."</title>\n");
-  print (" </head>\n");
-  print (" <body>\n");
-  print ("  <table cellspacing=\"0\">\n");
-  print ("   <tr>\n");
-  print ("    <td class=\"title\">".$title."</td>\n");
-  print ("    <td class=\"date\">".$date."</td>\n");
-  print ("   </tr>\n");
-  print ("   <tr>\n");
-  print ("    <td class=\"parent_links\">\n");
-  $self->print_parent_links(0, "y");
-  print ("     (".$progress.")\n");
-  print ("    </td>\n");
-  print ("    <td class=\"nav_links\">\n");
-  if ($prev_link >= 0) {                          
-    my $tmp2 = `basename $self->{ENTRIES}[$n-1]->{FILENAME}`;
-           chomp $tmp2;
-    print ("  <a href=\"".$tmp2.".html\">".$self->{SETTINGS}->{LINK_PREV}."</a>");
-#    print ("      <a href=\"".$prev_link.".html\">".$self->{SETTINGS}->{LINK_PREV}."</a>");
-  } else {
-    print ("      ".$self->{SETTINGS}->{LINK_PREV});
-  }
-  print ("&nbsp;&nbsp;&nbsp;<a href=\"index.html\">".$self->{SETTINGS}->{LINK_UP}."</a>&nbsp;&nbsp;&nbsp;");
-  if ($next_link >= 0) {
-    my $tmp2 = `basename $self->{ENTRIES}[$n+1]->{FILENAME}`;
-           chomp $tmp2;
-    print ("  <a href=\"".$tmp2.".html\">".$self->{SETTINGS}->{LINK_NEXT}."</a>");
-
-#    print ("<a href=\"".$next_link.".html\">".$self->{SETTINGS}->{LINK_NEXT}."</a>\n");
-  } else {
-    print ($self->{SETTINGS}->{LINK_NEXT}."\n");
-  } 
-  print ("    </td>\n");
-  print ("   </tr>\n");
-
-  if (-f $self->{ENTRIES}[$n]->{FILENAME}.".txt") {
-        open(FILE, $self->{ENTRIES}[$n]->{FILENAME}.".txt");
-        print ("    <tr><td align=center class=\"td.title\">");
-    
-	while (<FILE>) {
-        print ("$_\n<br>");
-	}
-        print ("</td></tr>\n");
-        close(FILE);
-  }
-
-  print ("   <tr>\n");
-  print ("    <td class=\"image\" colspan=\"2\">\n");
-  print ("     <img class=\"image\" src=\"".$self->{SETTINGS}->{IMAGES_DIR}."/".$nn."\" alt=\"image\">\n");
-  print ("    </td>\n");
-  print ("   </tr>\n");
-  if ($image->{HAS_EXIF} && $self->{SETTINGS}->{DISPLAY_EXIF}) {
+    $self->print_meta_keywords_tag();
+    $self->style_link();
+    $self->rss_meta();
+    if ($prev_link >= 0) {
+      print ("  <link rel=\"Prev\" href=\"".$self->{ENTRIES}[$prev_link]->{BASENAME}.".html\">\n");
+    }
+    print ("  <link rel=\"Contents\" href=\"index.html\">\n");
+    if ($next_link >= 0) {
+      print ("  <link rel=\"Next\" href=\"".$self->{ENTRIES}[$next_link]->{BASENAME}.".html\">\n");
+    }
+    print ("  <title>".$title."</title>\n");
+    print ("  <script type=\"text/javascript\">\n");
+    print ("    <!--\n");
+    print ("      function getKey(event) {\n");
+    print ("        if (!event) event = window.event;\n");
+    print ("        if (event.keyCode) code = event.keyCode;\n");
+    print ("        else if (event.which) code = event.which;\n");
+    print ("        if (event.shiftKey) {\n");
+    if ($prev_link >= 0) {
+      print ("          if (code == 37) {\n");
+      print ("            document.location = '".$self->{ENTRIES}[$prev_link]->{BASENAME}.".html';\n");
+      print ("          }\n");
+    }
+    print ("          if (code == 38) {\n");
+    print ("            document.location = 'index.html';\n");
+    print ("          }\n");
+    if ($next_link >= 0) {
+      print ("          if (code == 39) {\n");
+      print ("            document.location = '".$self->{ENTRIES}[$next_link]->{BASENAME}.".html';\n");
+      print ("          }\n");
+    } 
+    print ("        }\n");
+    print ("        return true;\n");
+    print ("      }\n");
+    print ("      document.onkeypress = getKey;\n");
+    print ("    // -->\n");
+    print ("  </script>\n");
+    print (" </head>\n");
+    print (" <body>\n");
+    print ("  <table style=\"width: ".$self->{SETTINGS}->{TABLE_WIDTH}."px;\" cellspacing=\"0\">\n");
     print ("   <tr>\n");
-    print ("    <td class=\"exif\" colspan=\"2\">\n");
-    print ("     ".$image->{CAMERA}.", ".$image->{FOCAL_LENGTH}."mm, ".$image->{APERTURE}.", ".$image->{SHUTTER_SPEED}."s, ISO ".$image->{ISO}."<BR>\n");
-    print ("     ".$image->{METERING}.", ".$image->{EXPOSURE}." EV\n");
+    print ("    <td ".width(-$columns)." class=\"title\">".$title."</td>\n");
+    print ("    <td ".width($columns)." class=\"date\">".$date."</td>\n");
+    print ("   </tr>\n");
+    print ("   <tr>\n");
+    print ("    <td class=\"parent_links\">\n");
+    $self->print_parent_links(0, "y");
+    print ("     (".$progress.")\n");
+    print ("    </td>\n");
+    print ("    <td class=\"nav_links\">\n");
+    if ($prev_link >= 0) {
+      print ("     <a href=\"".uri_escape($self->{ENTRIES}[$prev_link]->{BASENAME}).".html\">".$self->{SETTINGS}->{LINK_PREV}."</a>");
+    } else {
+      print ("     ".$self->{SETTINGS}->{LINK_PREV});
+    }
+    print ("&nbsp;&nbsp;&nbsp;<a href=\"index.html\">".$self->{SETTINGS}->{LINK_UP}."</a>&nbsp;&nbsp;&nbsp;");
+    if ($next_link >= 0) {
+      print ("<a href=\"".uri_escape($self->{ENTRIES}[$next_link]->{BASENAME}).".html\">".$self->{SETTINGS}->{LINK_NEXT}."</a>\n");
+    } else {
+      print ($self->{SETTINGS}->{LINK_NEXT}."\n");
+    } 
     print ("    </td>\n");
     print ("   </tr>\n");
-  
-  }
-  
-  
-  
-
-  print ("   <tr>\n");
-  print ("    <td colspan=\"2\" class=\"footer\">\n");
-  print ("     ".$self->{SETTINGS}->{FOOTER}."\n");
-  print ("    </td>\n");
-  print ("   </tr>\n");
-#  print ("   <tr>\n");
-#  print ("         <td colspan=2 class=footer>\n");
-#  print (" (c) 2005 Tomasz Golinski\n");
-#  print ("          </td>\n");
-#  print ("  	   </tr>\n");
-  print ("  </table>\n");
-  print ("  <br><center><script language=\"javascript\"><!-- \n var ipath=\'212.33.73.85/tomaszg/istats5\'\n");
-  print ("  document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\" SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");
-      print ("  //-->\n");
-        print ("  </script></center>\n");
-  print (" </body>\n");
-  print ("</html>\n");
-  close STDOUT;
-  open STDOUT, ">&", $oldout;
-}
 
 
-sub generate {
-  my $self = shift;
-  my $directory = shift;
 
-$self->debug(1,"Generating structure for \"".$self->{TITLE}."\"");
-  mkdir $directory;
-  chdir $directory;
-$self->debug(1,"tomaszg dir ".$directory);
+    print ("   <tr>\n");
+    print ("    <td class=\"image\" colspan=\"2\">\n");
+    print ("     <img alt=\"image\" class=\"image\" src=\"".$self->{SETTINGS}->{IMAGES_DIR}."/".$image->{BASENAME}."\">\n");
+    print ("    </td>\n");
+    print ("   </tr>\n");
+    if (-f $self->{ENTRIES}[$n]->{FILENAME}.".txt") {
+        open(FILE, $self->{ENTRIES}[$n]->{FILENAME}.".txt");
+        print ("    <tr><td colspan=\"2\" align=center class=\"break\">");
+        while (<FILE>) {
+        print ("$_\n");
+        }
+        print ("</td></tr>\n");
+        close(FILE);
+    }
 
-  mkdir $self->{SETTINGS}->{THUMBS_DIR};
-  mkdir $self->{SETTINGS}->{IMAGES_DIR};
 
-$self->debug(1,"  Copying files");
-  if ($self->{SETTINGS}->{CSS_FILE}) {
-$self->debug(1,"    Copying ".$self->{SETTINGS}->{CSS_FILE}."");
-    system "cp \"".$self->{SETTINGS}->{CSS_FILE}."\" .";
-  }
-  if ($self->{SETTINGS}->{LOCAL_CSS_FILE}) {
-$self->debug(1,"    Copying ".$self->{SETTINGS}->{LOCAL_CSS_FILE}."");
-    system "cp \"".$self->{SETTINGS}->{LOCAL_CSS_FILE}."\" .";
-  }
+    if ($image->{EXIF_STRING} && $self->{SETTINGS}->{OPTIONS_EXIF}) {
+      print ("   <tr>\n");
+      print ("    <td class=\"exif\" colspan=\"2\">\n");
+      print ("     ".$image->{EXIF_STRING}."\n");
+      print ("    </td>\n");
+      print ("   </tr>\n");
+    }
 
-  my $thumb_size = $self->{SETTINGS}->{THUMB_SIZE};
-  my $image_size = $self->{SETTINGS}->{IMAGE_SIZE};
-  my $convert_options = $self->{SETTINGS}->{CONVERT_OPTIONS};
+    print ("   <tr>\n");
+    print ("    <td colspan=\"2\" class=\"footer\">\n");
+    print ("     ".$self->{SETTINGS}->{FOOTER}."<br>\n");
+    if ($self->about_link()) {
+      if ($self->{SETTINGS}->{RSS_BASE}) {
+        print ("     &nbsp;&nbsp;&diams;&nbsp;&nbsp;\n");
+      }
+    }
+    $self->rss_link();
+    print ("    </td>\n");
+    print ("   </tr>\n");
+    print ("  </table>\n");
+    print (" </body>\n");
+    print ("</html>\n");
+    close STDOUT;
+    open STDOUT, ">&", $oldout;
 
-  if ($self->{SETTINGS}->{LOCAL_CONVERT_OPTIONS}) {
-    $convert_options = $self->{SETTINGS}->{LOCAL_CONVERT_OPTIONS};
-  }
-  if ($self->{SETTINGS}->{LOCAL_IMAGE_SIZE}) {
-    $image_size = $self->{SETTINGS}->{LOCAL_IMAGE_SIZE};
-  }
-  if ($self->{SETTINGS}->{LOCAL_THUMB_SIZE}) {
-    $thumb_size = $self->{SETTINGS}->{LOCAL_THUMB_SIZE};
+    compare_and_copy($tmpnam, $image->{BASENAME}.".html");
+    unlink ($tmpnam);
+
   }
 
-  my $options_thumb = "-size ".$thumb_size." -geometry ".$thumb_size." ".$convert_options;
-  my $options_image = "-geometry ".$image_size." ".$convert_options;
 
-     my $thumb_cache = Cache->new("thumbs/.cache");
-     my $image_cache = Cache->new("images/.cache");
+  sub generate {
+    my $self = shift;
+    my $directory = shift;
 
+  $self->debug(1,"Generating structure for \"".$self->{TITLE}."\"");
+    mkdir $directory;
+    chdir $directory;
 
-  for my $n (0 .. $self->{N_ENTRIES}-1) {
-    my $src_image = undef;
-    if ($self->{ENTRIES}[$n]->{OBJECT} eq "image") {
+    mkdir $self->{SETTINGS}->{THUMBS_DIR};
+    mkdir $self->{SETTINGS}->{IMAGES_DIR};
+
+  $self->debug(1,"  Copying files");
+    if ($self->{SETTINGS}->{CSS_FILE}) {
+  $self->debug(1,"    Copying ".$self->{SETTINGS}->{CSS_FILE}."");
+      copyToCwd($self->{SETTINGS}->{CSS_FILE});
+    }
+    if ($self->{SETTINGS}->{LOCAL_CSS_FILE}) {
+  $self->debug(1,"    Copying ".$self->{SETTINGS}->{LOCAL_CSS_FILE}."");
+      copyToCwd($self->{SETTINGS}->{LOCAL_CSS_FILE});
+    }
+
+    if ($self->{SETTINGS}->{ABOUT_FILE}) {
+  $self->debug(1,"    Copying ".$self->{SETTINGS}->{ABOUT_FILE}."");
+      copyToCwd($self->{SETTINGS}->{ABOUT_FILE});
+    }
+
+    my $thumb_size = $self->{SETTINGS}->{THUMB_SIZE};
+    my $album_size = $self->{SETTINGS}->{ALBUM_SIZE};
+    my $image_size = $self->{SETTINGS}->{IMAGE_SIZE};
+
+    if ($self->{SETTINGS}->{LOCAL_IMAGE_SIZE}) {
+      $image_size = $self->{SETTINGS}->{LOCAL_IMAGE_SIZE};
+    }
+    if ($self->{SETTINGS}->{LOCAL_ALBUM_SIZE}) {
+      $album_size = $self->{SETTINGS}->{LOCAL_ALBUM_SIZE};
+    }
+    if ($self->{SETTINGS}->{LOCAL_THUMB_SIZE}) {
+      $thumb_size = $self->{SETTINGS}->{LOCAL_THUMB_SIZE};
+    }
+    my $noconv = $self->{SETTINGS}->{OPTIONS_NOCONV};
+
+    my $thumb_cache = Cache->new("thumbs/.cache");
+    my $image_cache = Cache->new("images/.cache");
+
+    for my $n (0 .. $self->{N_ENTRIES}-1) {
+      my $src_image = undef;
+    my $dest_thumb = undef;
+    my $dest_image = undef;
+    my $object_type = $self->{ENTRIES}[$n]->{OBJECT};
+    if ($object_type eq "image") {
       $src_image = $self->{ENTRIES}[$n]->{FILENAME};
-    } elsif ($self->{ENTRIES}[$n]->{OBJECT} eq "album") {
+      $dest_thumb = $self->{SETTINGS}->{THUMBS_DIR}."/".$self->{ENTRIES}[$n]->{BASENAME};
+      $dest_image = $self->{SETTINGS}->{IMAGES_DIR}."/".$self->{ENTRIES}[$n]->{BASENAME};
+    } elsif ($object_type eq "album") {
       $src_image = $self->{ENTRIES}[$n]->{HIGHLIGHT}->{FILENAME};
+      $dest_thumb = $self->{SETTINGS}->{THUMBS_DIR}."/".$self->{ENTRIES}[$n]->{DIRNAME}.".jpg";
+      $dest_image = $self->{SETTINGS}->{IMAGES_DIR}."/".$self->{ENTRIES}[$n]->{DIRNAME}.".jpg";
     }
     if ($src_image) {
-      my $nn = `basename "$src_image"`; chomp $nn;
-      my $dest_thumb = $self->{SETTINGS}->{THUMBS_DIR}."/".$nn.".jpg";
-      my $dest_image = $self->{SETTINGS}->{IMAGES_DIR}."/".$nn;
-      my $do_convert = undef;
-      if ( !( -f $dest_thumb && -f $dest_image) || $self->{SETTINGS}->{FORCE_IMAGES} ) {
-$self->debug(5,"    Converting image (".$src_image.")");
-        $do_convert = 1;
-      } elsif ( $thumb_cache->match($src_image, $nn.".jpg", $thumb_size) && $image_cache->match($src_image, $nn.".jpg", $image_size) ) {
-$self->debug(5,"    Not converting existing and matching image (".$src_image.")");
-      } else {
-$self->debug(5,"    Converting existing but out-of-date image (".$src_image.")");
-        $do_convert = 1;
+      my $convert_thumb = undef;
+      my $convert_image = undef;
+
+      if ($self->{SETTINGS}->{FORCE_IMAGES}) {
+        $convert_thumb = 1;
+        $convert_image = 1;
+$self->debug(5,"    Forced generation of image/thumb (".$src_image.")");
+      } else
+     {
+      if ( ! -f $dest_thumb ) {
+        $convert_thumb = 1;
+$self->debug(5,"    Generating non-existing thumb (".$src_image.")");
+      } 
+      if ( ! -f $dest_image ) {
+          if ($object_type ne "album") { 
+$self->debug(5,"    Generating non-existing image (".$src_image.")");
+            $convert_image = 1;
+          }
+      } 
+     }
+
+      if (!$convert_image) {
+        if ($noconv && $object_type ne "album") {
+          if (timestamp($src_image)>timestamp($dest_image)) {
+$self->debug(5,"    Copying existing but out-of-date image (".$src_image.")");
+            $convert_image = 1;
+          }
+        }
+        elsif ( $object_type eq "image" && (! $image_cache->match($src_image, basename($dest_image), $image_size,
+                                                                  $self->{SETTINGS}->{GAMMA},
+                                                                  $self->{SETTINGS}->{UNSHARP},
+                                                                  $self->{SETTINGS}->{IMAGE_QUALITY}))) {
+$self->debug(5,"    Generating existing but out-of-date image (".$src_image.")");
+          $convert_image = 1;
+        }
       }
-      if ($do_convert) {
-	  if ($self->{SETTINGS}->{NO_CONVERT} eq "n") {
-    	    system "convert ".$options_thumb." \"".$src_image."\" \"".$dest_thumb."\"";
-            system "convert ".$options_image." \"".$src_image."\" \"".$dest_image."\"";
-	    $thumb_cache->update($src_image, $nn.".jpg", $thumb_size);
-    	    $image_cache->update($src_image, $nn.".jpg", $image_size);
-	  } else {
-    	    system "convert ".$options_thumb." \"".$src_image."\" \"".$dest_thumb."\"";
-	    system "cp -f \"".$src_image."\" \"".$dest_image."\"";
-	    $thumb_cache->update($src_image, $nn.".jpg", $thumb_size);
-    	    $image_cache->update($src_image, $nn.".jpg", "no-conv");
-	  }
+      if (!$convert_thumb) {
+        if ( $object_type eq "album" && (! $thumb_cache->match($src_image, basename($dest_thumb), $album_size,
+                                                               $self->{SETTINGS}->{GAMMA},
+                                                               $self->{SETTINGS}->{UNSHARP},
+                                                               $self->{SETTINGS}->{THUMB_QUALITY} ))) {
+          $convert_thumb = 1;
+$self->debug(5,"    Generating existing but out-of-date image (".$src_image.")");
+        }
+        if ( $object_type eq "image" && (! $thumb_cache->match($src_image, basename($dest_thumb), $thumb_size,
+                                                               $self->{SETTINGS}->{GAMMA},
+                                                               $self->{SETTINGS}->{UNSHARP},
+                                                               $self->{SETTINGS}->{THUMB_QUALITY} ))) {
+          $convert_thumb = 1;
+$self->debug(5,"    Generating existing but out-of-date image (".$src_image.")");
+        }
+      }
+
+      if ($convert_thumb || $convert_image) {
+        my $magick = Image::Magick->new();
+        if ($convert_thumb || ($convert_image && (!$noconv))) {
+          if ((!$convert_image) || $noconv) {
+            $magick->set(size=>$image_size);
+          }
+          $magick->read($src_image);
+          if ($self->{SETTINGS}->{GAMMA} && (!$noconv)) {
+            $magick->Gamma($self->{SETTINGS}->{GAMMA});
+          }
+        }
+
+        if ( $object_type eq "image" ) {
+          if ($convert_image) {
+            if ($noconv) {
+              copy($src_image, $dest_image);
+            } else {
+              $magick->Resize(geometry=>$image_size);
+              if ($self->{SETTINGS}->{UNSHARP}) {
+                $magick->UnsharpMask(geometry=>$self->{SETTINGS}->{UNSHARP});
+              }
+              $magick->set(quality=>$self->{SETTINGS}->{IMAGE_QUALITY});
+              $magick->write("jpg:".$dest_image);
+              $image_cache->update($src_image, basename($dest_image), $image_size,
+                                   $self->{SETTINGS}->{GAMMA}, $self->{SETTINGS}->{UNSHARP},
+                                   $self->{SETTINGS}->{IMAGE_QUALITY});
+            }
+          }
+          if ($convert_thumb) {
+            $magick->Resize(geometry=>$thumb_size);
+            if ($self->{SETTINGS}->{UNSHARP}) {
+              $magick->UnsharpMask(geometry=>$self->{SETTINGS}->{UNSHARP});
+            }
+            $magick->set(quality=>$self->{SETTINGS}->{THUMB_QUALITY});
+            $magick->write("jpg:".$dest_thumb);
+            $thumb_cache->update($src_image, basename($dest_thumb), $thumb_size,
+                                 $self->{SETTINGS}->{GAMMA}, $self->{SETTINGS}->{UNSHARP},
+                                 $self->{SETTINGS}->{THUMB_QUALITY});
+          }
+        } elsif ( $object_type eq "album" ) {
+          if ($convert_thumb) {
+            $magick->Resize(geometry=>$album_size);
+            if ($self->{SETTINGS}->{UNSHARP}) {
+              $magick->UnsharpMask(geometry=>$self->{SETTINGS}->{UNSHARP});
+            }
+            $magick->write("jpg:".$dest_thumb);
+            $thumb_cache->update($src_image, basename($dest_thumb), $album_size,
+                                 $self->{SETTINGS}->{GAMMA}, $self->{SETTINGS}->{UNSHARP},
+                                 $self->{SETTINGS}->{THUMB_QUALITY});
+          }
+        }
       }
     }
   }
-$thumb_cache->write("thumbs/.cache");
-$image_cache->write("images/.cache");
+  $thumb_cache->write("thumbs/.cache");
+  $image_cache->write("images/.cache");
 
 $self->debug(1,"  Generating HTML");
 $self->debug(5,"    Generating index.html");
-  $self->generate_index();
+
+  my $columns = $self->{SETTINGS}->{COLUMNS};
+  if ($self->{SETTINGS}->{LOCAL_COLUMNS}) {
+    $columns = $self->{SETTINGS}->{LOCAL_COLUMNS};
+  }
+  if ( $columns eq "auto" ) {
+    if ($self->{CONTAINS_ALBUMS}) {
+      $columns = 3;
+    } else {
+      $columns = 4;
+    }
+  }
+
+
+  $self->generate_index($columns);
 
   for my $n (0 .. $self->{N_ENTRIES}-1) {
     if ( $self->{ENTRIES}[$n]->{OBJECT} eq "image" ) {
 $self->debug(5,"    Generating html for \"".$self->{ENTRIES}[$n]->{FILENAME}."\"");
-      $self->generate_image($n);
+      $self->generate_image($n, $columns);
     }
     if ( $self->{ENTRIES}[$n]->{OBJECT} eq "album" ) {
-      my $nn=`basename "$self->{ENTRIES}[$n]->{DIRECTORY}"`;
-      chomp $nn;
-      mkdir $nn;
-#      $self->debug(1,"tomaszgdebug-gen: ".$nn);
-#      $self->debug(1,"tomaszgdebug-gen2: ".$directory."/".$nn);
-      $self->{ENTRIES}[$n]->generate($directory."/".$nn);
+      mkdir $self->{ENTRIES}[$n]->{DIRNAME};
+      $self->{ENTRIES}[$n]->generate($directory."/".$self->{ENTRIES}[$n]->{DIRNAME});
       chdir $directory;
     }
   }
 
 }
+
 
 
 sub print_parent_links {
@@ -910,6 +1188,25 @@ sub print_parent_links {
   }
 }
 
+sub print_meta_keywords {
+  my $self = shift;
+  print $self->{TITLE}.",".$self->{DIRNAME}.",";
+  if ($self->{PARENT_ALBUM}) {
+    $self->{PARENT_ALBUM}->print_meta_keywords();
+  }
+}
+
+sub print_meta_keywords_tag {
+  my $self = shift;
+  print ("  <meta name=\"Keywords\" content=\"");
+  $self->print_meta_keywords();
+  print ($self->{SETTINGS}->{META_KEYWORDS});
+  if ($self->{SETTINGS}->{LOCAL_META_KEYWORDS} ne "") {
+    print (",".$self->{SETTINGS}->{LOCAL_META_KEYWORDS});
+  }
+  print ("\">\n");
+}
+
 sub style_link {
   my $self = shift;
   my $level = shift;
@@ -918,23 +1215,77 @@ sub style_link {
     $self->{PARENT_ALBUM}->style_link($level."../");
   }
   if ($self->{SETTINGS}->{CSS_FILE}) {
-    my $css = $level.`basename "$self->{SETTINGS}->{CSS_FILE}"`;
-    chomp $css;
+    my $css = $level.basename($self->{SETTINGS}->{CSS_FILE});
     print ("  <link rel=\"stylesheet\" type=\"text/css\" href=\"".$css."\">\n");
   }
   if ($self->{SETTINGS}->{LOCAL_CSS_FILE}) {
     if ($level eq "") {
-      my $css = `basename "$self->{SETTINGS}->{LOCAL_CSS_FILE}"`;
-      chomp $css;
+      my $css = basename($self->{SETTINGS}->{LOCAL_CSS_FILE});
       print ("  <link rel=\"stylesheet\" type=\"text/css\" href=\"".$css."\">\n");
     }
   }
+}
+
+sub about_link {
+  my $self = shift;
+  my $level = shift;
+
+  if ($self->{SETTINGS}->{ABOUT_FILE}) {
+    my $about = $level.basename($self->{SETTINGS}->{ABOUT_FILE});
+    print ("     <a class=\"about\" href=\"".$about."\">".$self->{SETTINGS}->{LINK_ABOUT}."</a>\n");
+    return "y";
+  }
+  elsif ($self->{PARENT_ALBUM}) {
+    return $self->{PARENT_ALBUM}->about_link($level."../");
+  }
+  return undef;
+}
+
+sub rss_link {
+  my $self = shift;
+  my $level = shift;
+
+  if ($self->{SETTINGS}->{RSS_BASE}) {
+    if ($self->{PARENT_ALBUM}) {
+      return $self->{PARENT_ALBUM}->rss_link($level."../");
+    } else {
+      print ("     <a class=\"about\" href=\"".$level.$self->{SETTINGS}->{RSS_FILE}."\">".$self->{SETTINGS}->{LINK_RSS}."</a>\n");
+      return "y";
+    }
+  }
+  return undef;
+}
+
+sub rss_meta {
+  my $self = shift;
+  my $level = shift;
+
+  if ($self->{SETTINGS}->{RSS_BASE}) {
+    if ($self->{PARENT_ALBUM}) {
+      return $self->{PARENT_ALBUM}->rss_meta($level."../");
+    } else {
+      print ("  <link rel=\"alternate\" type=\"application/rss+xml\" title=\"RSS\" href=\"".$self->{SETTINGS}->{RSS_BASE}."/".$self->{SETTINGS}->{RSS_FILE}."\">\n");
+      return "y";
+    }
+  }
+  return undef;
 }
 
 sub colspan {
   my $n = shift;   # Static method!
   if ($n > 1) {
     return " colspan=\"".$n."\"";
+  } else {
+    return "";
+  }
+}
+
+sub width {
+  my $cols = shift;
+  if (($cols >= 1) && ($cols <= 20)) {
+    return sprintf(" style=\"width: %.1f%%;\"",(100/$cols));
+  } elsif (($cols <= -1) && ($cols >= -20)) {
+    return sprintf(" style=\"width: %.1f%%;\"",(100-100/(-$cols)));
   } else {
     return "";
   }
@@ -949,13 +1300,135 @@ sub debug {
   }
 }
 
+sub uri_escape {
+  return URI::Escape::uri_escape(shift);
+}
+
+sub copy {
+  my $source = shift;
+  my $dest = shift;
+  File::Copy::copy($source, $dest);
+}
+
+sub compare_and_copy {
+  my $source = shift;
+  my $dest = shift;
+   if (!-f $dest) {
+     File::Copy::copy($source, $dest);
+   } elsif ( File::Compare::compare($source, $dest) != 0 ) {
+    File::Copy::copy($source, $dest);
+  }
+}
+
+sub copyToCwd {
+  my $source = shift;
+  compare_and_copy ($source, pwd()."/".basename($source));
+}
+
+sub basename {
+  return File::Basename::basename(shift);
+}
+
+sub pwd {
+  return Cwd::cwd();
+}
+
+sub timestamp {
+  my $filename = shift;
+  return File::stat::stat($filename)->mtime;
+}
+
+sub update_date_if_newer {
+  my $self = shift;
+  my $new_date = shift;
+
+  if (!$self->{DATE}) {
+    $self->{DATE} = $new_date;
+  } elsif ( DateTime->compare($self->{DATE}, $new_date) < 0 ) {
+    $self->{DATE} = $new_date;
+  }
+}
+
+
+sub push_dates_to_rss {
+  my $self = shift;
+  my $arr = shift;
+  if (!$self->{CONTAINS_ALBUMS}) {
+    if ($self->{DATE}) {
+      my $copy = $self->{DATE}->clone();
+      $copy->{TITLE} = $self->{TITLE};
+      $copy->{URL_PATH} = $self->{URL_PATH};
+      push @$arr, $copy;
+    }
+  } else {
+    for my $n (0 .. $self->{N_ENTRIES}-1) {
+      if ($self->{ENTRIES}[$n]->{OBJECT} eq "album") {
+        $self->{ENTRIES}[$n]->push_dates_to_rss(\@$arr);
+      }
+    }
+  }
+}
+
+
 
 
 ##########################################
 package main;
 
-my $settings = Settings->new("/mnt/q/Foto/gal/settings");
-#$settings->{FORCE_IMAGES} = "y";
+
+sub generate_rss {
+  my $album = shift;
+  my $output = shift;
+  my $rss_base = $album->{SETTINGS}->{RSS_BASE};
+
+  if ($rss_base) {
+    my @array = ();
+    $album->push_dates_to_rss(\@array);
+    @array = reverse(sort(@array));
+
+    open (RSS, ">".$output);
+    print (RSS "<?xml version=\"1.0\" encoding=\"ISO-8859-2\"?>\n");
+    print (RSS "<rss version=\"2.0\">\n");
+    print (RSS "<channel>\n");
+    print (RSS " <title>".$album->{TITLE}."</title>\n");
+    print (RSS " <link>".$rss_base."</link>\n");
+    print (RSS " <description> </description>\n");
+    print (RSS " <language>en</language>\n");
+    print (RSS " <copyright>".$album->{FOOTER}."</copyright>\n");
+    print (RSS " <lastBuildDate>".$array[0]->strftime("%a, %d %b %Y %H:%M:%S %z")."</lastBuildDate>\n");
+
+    my $n = 15;
+    ITEM_LOOP: for my $item (@array) {
+      print (RSS " <item>\n");
+      print (RSS "  <title>".$item->{TITLE}."</title>\n");
+      print (RSS "  <description> </description>\n");
+      print (RSS "  <link>".$rss_base."/".$item->{URL_PATH}."</link>\n");
+      print (RSS "  <guid>".$rss_base."/".$item->{URL_PATH}."</guid>\n");
+      print (RSS "  <pubDate>".$item->strftime("%a, %d %b %Y %H:%M:%S %z")."</pubDate>\n");
+      print (RSS " </item>\n");
+      $n--; if ($n <=0) { last ITEM_LOOP; }
+    }
+    print (RSS "</channel>\n");
+    print (RSS "</rss>\n");
+    close (RSS);
+  }
+
+}
+
+
+
+if (!$ARGV[0]) {
+  print ("\nPlease specify target directory as a parameter.\n\n");
+  exit (1);
+}
+
+
+my $target = $ARGV[0];
+
+my $settings = Settings->new();
 $settings->{DEBUG_LEVEL} = 5;
-my $album = Album->new("/mnt/q/Foto/gal", undef, $settings->clone(), 0);
-$album->generate("/mnt/q/Foto/gal/html");
+
+my $album = Album->new(Cwd::cwd(), undef, $settings->clone(), 0);
+$album->generate($target);
+
+generate_rss($album, $target."rss.xml");
