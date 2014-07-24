@@ -3,7 +3,11 @@
 #  skrypt muflona
 #  przerobiony tak,ze:
 
-
+# 1.2.0
+# 1. opcja no_convert
+# 2. dodanie metering i EV do exifa
+# 3. dodanie "alt" do tagow "img"
+# 4. dodany brakujacy chomp
 # 1.1.1
 # 1.  nie dodaje &nbsp jak nie ma HEADERA
 # 2.  godzina z exifa do daty
@@ -112,6 +116,7 @@ sub new {
   $self->{FOOTER} = "&nbsp;";
   $self->{HEADER} = "&nbsp;";
   $self->{DESC} = "&nbsp;";
+  $self->{NO_CONVERT} = "n";
   $self->{DISPLAY_EXIF} = "y";
   $self->{FORCE_IMAGES} = undef;
   $self->{DEBUG_LEVEL} = 9;
@@ -182,6 +187,12 @@ sub new {
     }
     elsif (/0x920a\|(\S*)/) {
       $self->{FOCAL_LENGTH} = $1;
+    }
+    elsif (/0x9207\|(.*)/) {
+      $self->{METERING} = $1;
+    }
+    elsif (/0x9204\|(\S*)/) {
+      $self->{EXPOSURE} = $1;
     }
   }
   close (EXIF);
@@ -302,6 +313,10 @@ $self->debug(1,"  Read HEADER: \"".$self->{SETTINGS}->{HEADER}."\"");
       elsif (/DESC:\s+(.+)/) {
         $self->{SETTINGS}->{DESC} = $1;
 $self->debug(1,"  Read DESC: \"".$self->{SETTINGS}->{DESC}."\"");
+      }
+      elsif (/NO_CONVERT:\s+(.+)/) {
+        $self->{SETTINGS}->{NO_CONVERT} = $1;
+$self->debug(1,"  Read NO_CONVERT: \"".$self->{SETTINGS}->{NO_CONVERT}."\"");
       }
       elsif (/LOCAL_IMAGE_SIZE:\s+(\S*)\s*/) {
         $self->{SETTINGS}->{LOCAL_IMAGE_SIZE} = $1;
@@ -568,10 +583,11 @@ sub generate_index {
 
 	  my $nn = `basename $self->{ENTRIES}[$n]->{DIRECTORY}`;
 	    chomp $nn;
+	    chomp $nnn;
 #	    $self->debug(1,"tomaszg debug nn html: ".$nn);
           print ("    <td class=\"thumb_album\">\n");
           print ("     <a href=\"".$nn."/index.html\">\n");
-          print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".$nnn.".jpg\">\n");
+          print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".$nnn.".jpg\" alt=\"album\">\n");
           if ($self->{ENTRIES}[$n]->{TITLE}) {
             print ("      <br>\n");
             print ("      ".$self->{ENTRIES}[$n]->{TITLE}."\n");
@@ -584,7 +600,7 @@ sub generate_index {
       my $nn = `basename $self->{ENTRIES}[$n]->{FILENAME}`; chomp $nn;	  
           print ("    <td class=\"thumb_image\">\n");
           print ("     <a href=\"".$nn.".html\">\n");
-          print ("      <img class=\"thumb_image\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".$nn.".jpg\">\n");
+          print ("      <img class=\"thumb_image\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".$nn.".jpg\" alt=\"thumb\">\n");
           if ($self->{ENTRIES}[$n]->{TITLE}) {
             print ("      <br>\n");
             print ("      ".$self->{ENTRIES}[$n]->{TITLE}."\n");
@@ -728,13 +744,14 @@ sub generate_image {
 
   print ("   <tr>\n");
   print ("    <td class=\"image\" colspan=\"2\">\n");
-  print ("     <img class=\"image\" src=\"".$self->{SETTINGS}->{IMAGES_DIR}."/".$nn."\">\n");
+  print ("     <img class=\"image\" src=\"".$self->{SETTINGS}->{IMAGES_DIR}."/".$nn."\" alt=\"image\">\n");
   print ("    </td>\n");
   print ("   </tr>\n");
   if ($image->{HAS_EXIF} && $self->{SETTINGS}->{DISPLAY_EXIF}) {
     print ("   <tr>\n");
     print ("    <td class=\"exif\" colspan=\"2\">\n");
-    print ("     ".$image->{CAMERA}.", ".$image->{FOCAL_LENGTH}."mm, ".$image->{APERTURE}.", ".$image->{SHUTTER_SPEED}."s, ISO ".$image->{ISO}."\n");
+    print ("     ".$image->{CAMERA}.", ".$image->{FOCAL_LENGTH}."mm, ".$image->{APERTURE}.", ".$image->{SHUTTER_SPEED}."s, ISO ".$image->{ISO}."<BR>\n");
+    print ("     ".$image->{METERING}.", ".$image->{EXPOSURE}." EV\n");
     print ("    </td>\n");
     print ("   </tr>\n");
   
@@ -804,24 +821,21 @@ $self->debug(1,"    Copying ".$self->{SETTINGS}->{LOCAL_CSS_FILE}."");
   my $options_thumb = "-geometry ".$thumb_size." ".$convert_options;
   my $options_image = "-geometry ".$image_size." ".$convert_options;
 
-  my $thumb_cache = Cache->new("thumbs/.cache");
-  my $image_cache = Cache->new("images/.cache");
+     my $thumb_cache = Cache->new("thumbs/.cache");
+     my $image_cache = Cache->new("images/.cache");
+
 
   for my $n (0 .. $self->{N_ENTRIES}-1) {
-#    print "\n____gawryl debug____\n $self->{ENTRIES}[$n]->{FILENAME}\n"; sleep 1;
     my $src_image = undef;
     if ($self->{ENTRIES}[$n]->{OBJECT} eq "image") {
       $src_image = $self->{ENTRIES}[$n]->{FILENAME};
     } elsif ($self->{ENTRIES}[$n]->{OBJECT} eq "album") {
       $src_image = $self->{ENTRIES}[$n]->{HIGHLIGHT}->{FILENAME};
     }
-#    if ($src_image and (!($src_image =~ /txt$/))) {
     if ($src_image) {
       my $nn = `basename "$src_image"`; chomp $nn;
       my $dest_thumb = $self->{SETTINGS}->{THUMBS_DIR}."/".$nn.".jpg";
-#      $self->debug(1,"tomazg-conv ".$self->{ENTRIES}[$n]->{FILENAME});
       my $dest_image = $self->{SETTINGS}->{IMAGES_DIR}."/".$nn;
-#      $self->debug(1,"tomazg-conv ".$dest_image);
       my $do_convert = undef;
       if ( !( -f $dest_thumb && -f $dest_image) || $self->{SETTINGS}->{FORCE_IMAGES} ) {
 $self->debug(5,"    Converting image (".$src_image.")");
@@ -833,10 +847,17 @@ $self->debug(5,"    Converting existing but out-of-date image (".$src_image.")")
         $do_convert = 1;
       }
       if ($do_convert) {
-        system "convert ".$options_thumb." \"".$src_image."\" \"".$dest_thumb."\"";
-        system "convert ".$options_image." \"".$src_image."\" \"".$dest_image."\"";
-        $thumb_cache->update($src_image, $nn.".jpg", $thumb_size);
-        $image_cache->update($src_image, $nn.".jpg", $image_size);
+	  if ($self->{SETTINGS}->{NO_CONVERT} eq "n") {
+    	    system "convert ".$options_thumb." \"".$src_image."\" \"".$dest_thumb."\"";
+            system "convert ".$options_image." \"".$src_image."\" \"".$dest_image."\"";
+	    $thumb_cache->update($src_image, $nn.".jpg", $thumb_size);
+    	    $image_cache->update($src_image, $nn.".jpg", $image_size);
+	  } else {
+    	    system "convert ".$options_thumb." \"".$src_image."\" \"".$dest_thumb."\"";
+	    system "cp -f \"".$src_image."\" \"".$dest_image."\"";
+	    $thumb_cache->update($src_image, $nn.".jpg", $thumb_size);
+    	    $image_cache->update($src_image, $nn.".jpg", "no-conv");
+	  }
       }
     }
   }
