@@ -4,6 +4,8 @@
 #  skrypt muflona 
 #  przerobiony tak,ze: 
 #
+# 1.6.1
+#   1. poprawione debuglevele
 # 1.6.0
 #   1. linkowanie istniejacych galerii
 # 1.5.5
@@ -235,7 +237,8 @@ sub new {
       if ($$info{ShutterSpeed}) { $exif .= ", ".$$info{ShutterSpeed}."s"; }
       my $show_focal = 1;
 
-      if (($$info{ShortFocal} == $$info{LongFocal}) && ($$info{ShortFocal} >1)) {
+      if (($$info{ShortFocal} == $$info{LongFocal}) ) {
+      # && ($$info{ShortFocal} >1)) {
         $show_focal = undef;
       }
       $_ = $$info{ShortFocal}."-".$$info{LongFocal};
@@ -366,12 +369,12 @@ $self->debug(1,"Initializing new album in: \"".$directory."\"");
     while (<$datafile>) {
       chomp;
       if (/^#(.*)/) {
-$self->debug(1,"  Skipping comment:  ".$1);
+$self->debug(3,"  Skipping comment:  ".$1);
       }
       elsif (/^[A-Z0-9_]+:.*/) {
         if (/^TITLE:\s+(.+)/) {
           $self->{TITLE} = $1;
-$self->debug(1,"  Read TITLE: \"".$self->{TITLE}."\"");
+$self->debug(2,"  Read TITLE: \"".$self->{TITLE}."\"");
         }
         elsif (/^DATE:\s+(.+)/) {
           $self->{DATE} = DateTime->new( year=>substr($1,6,4),
@@ -379,158 +382,158 @@ $self->debug(1,"  Read TITLE: \"".$self->{TITLE}."\"");
                                          day=>substr($1,0,2),
                                          hour=>0, minute=>0, second=>0,
                                          nanosecond=>0, time_zone=>"floating");
-$self->debug(1,"  Read custom DATE");
+$self->debug(2,"  Read custom DATE");
         }
         elsif (/^OPTIONS:\s+(.+)/) {
           my(@options) = split(',',$1);
           for (@options) {
             if (/\s*noexif\s*/) {
               $self->{SETTINGS}->{OPTIONS_EXIF} = undef;
-$self->debug(1,"  Disabled EXIF data display");
+$self->debug(2,"  Disabled EXIF data display");
             }
             elsif (/\s*exif\s*/) {
               $self->{SETTINGS}->{OPTIONS_EXIF} = "y";
-$self->debug(1,"  Enabled EXIF data display");
+$self->debug(2,"  Enabled EXIF data display");
             }
             elsif (/\s*noconv\s*/) {
               $self->{SETTINGS}->{OPTIONS_NOCONV} = "y";
-$self->debug(1,"  Enabled direct image copy");
+$self->debug(2,"  Enabled direct image copy");
             }
             elsif (/\s*conv\s*/) {
               $self->{SETTINGS}->{OPTIONS_NOCONV} = undef;
-$self->debug(1,"  Disabled direct image copy");
+$self->debug(2,"  Disabled direct image copy");
             }
             elsif (/\s*hidden\s*/) {
               $self->{SETTINGS}->{OPTIONS_HIDDEN} = "y";
-$self->debug(1,"  Hiding this album in the upper-level listing");
+$self->debug(2,"  Hiding this album in the upper-level listing");
             }
             elsif (/\s*leaf\s*/) {
               $self->{SETTINGS}->{OPTIONS_LEAF} = "y";
-$self->debug(1,"  Include this album in the RSS");
+$self->debug(2,"  Include this album in the RSS");
             }
           }
         }
         elsif (/^LENS:\s+(\S+)\s+(\S.*)/) {
           $self->{SETTINGS}->{LENSES}{$1} = $2;
-$self->debug(1,"  Read lens: ".$1." == ".$2);
+$self->debug(2,"  Read lens: ".$1." == ".$2);
         }
         elsif (/^BREAK:\s?(.*)/) {
           my $title = $1;
           my $break = Break->new($title);
           push @{$self->{ENTRIES}}, $break;
-$self->debug(1,"  Read BREAK: \"".$title."\"");
+$self->debug(2,"  Read BREAK: \"".$title."\"");
         }
         elsif (/ABOUT:\s+(.+)\s*/) {
           $self->{SETTINGS}->{ABOUT_FILE} = $directory."/".$1;
-$self->debug(1,"  Read ABOUT: \"".$self->{SETTINGS}->{ABOUT_FILE}."\"");
+$self->debug(2,"  Read ABOUT: \"".$self->{SETTINGS}->{ABOUT_FILE}."\"");
           $css_basename = basename($self->{SETTINGS}->{ABOUT_FILE});
         }
         elsif (/LOCAL_CSS:\s+(.+)\s*/) {
           $self->{SETTINGS}->{LOCAL_CSS_FILE} = $directory."/".$1;
-$self->debug(1,"  Read LOCAL_CSS: \"".$self->{SETTINGS}->{LOCAL_CSS_FILE}."\"");
+$self->debug(2,"  Read LOCAL_CSS: \"".$self->{SETTINGS}->{LOCAL_CSS_FILE}."\"");
           $local_css_basename = basename($self->{SETTINGS}->{LOCAL_CSS_FILE});
         }
         elsif (/CSS:\s+(.+)\s*/) {
           $self->{SETTINGS}->{CSS_FILE} = $directory."/".$1;
-$self->debug(1,"  Read CSS: \"".$self->{SETTINGS}->{CSS_FILE}."\"");
+$self->debug(2,"  Read CSS: \"".$self->{SETTINGS}->{CSS_FILE}."\"");
           $css_basename = basename($self->{SETTINGS}->{CSS_FILE});
         }
         elsif (/HIGHLIGHT:\s+(.+)\s*/) {
           $self->{SETTINGS}->{HIGHLIGHT} = $1;
           chomp $self->{SETTINGS}->{HIGHLIGHT};
-$self->debug(1,"  Read HIGHLIGHT: \"".$self->{SETTINGS}->{HIGHLIGHT}."\"");
+$self->debug(2,"  Read HIGHLIGHT: \"".$self->{SETTINGS}->{HIGHLIGHT}."\"");
         }
         elsif (/RSS_BASE:\s+(.+)\s*/) {
           $self->{SETTINGS}->{RSS_BASE} = $1;
           chomp $self->{SETTINGS}->{RSS_BASE};
-$self->debug(1,"  Read RSS_BASE: \"".$self->{SETTINGS}->{RSS_BASE}."\"");
+$self->debug(2,"  Read RSS_BASE: \"".$self->{SETTINGS}->{RSS_BASE}."\"");
         }
         elsif (/LOCAL_COLUMNS:\s+([123456789])\s*/) {
           $self->{SETTINGS}->{LOCAL_COLUMNS} = $1;
-$self->debug(1,"  Read LOCAL_COLUMNS: \"".$self->{SETTINGS}->{LOCAL_COLUMNS}."\"");
+$self->debug(2,"  Read LOCAL_COLUMNS: \"".$self->{SETTINGS}->{LOCAL_COLUMNS}."\"");
         }
         elsif (/TABLE_WIDTH:\s+([0123456789]*)\s*/) {
           $self->{SETTINGS}->{TABLE_WIDTH} = $1;
-$self->debug(1,"  Read TABLE_WIDTH: \"".$self->{SETTINGS}->{TABLE_WIDTH}."\"");
+$self->debug(2,"  Read TABLE_WIDTH: \"".$self->{SETTINGS}->{TABLE_WIDTH}."\"");
         }
         elsif (/COLUMNS:\s+([123456789])\s*/) {
           $self->{SETTINGS}->{COLUMNS} = $1;
-$self->debug(1,"  Read COLUMNS: \"".$self->{SETTINGS}->{COLUMNS}."\"");
+$self->debug(2,"  Read COLUMNS: \"".$self->{SETTINGS}->{COLUMNS}."\"");
         }
         elsif (/LOCAL_IMAGE_SIZE:\s+(\S*)\s*/) {
           $self->{SETTINGS}->{LOCAL_IMAGE_SIZE} = $1;
           chomp $self->{SETTINGS}->{LOCAL_IMAGE_SIZE};
-$self->debug(1,"  Read LOCAL_IMAGE_SIZE: \"".$self->{SETTINGS}->{LOCAL_IMAGE_SIZE}."\"");
+$self->debug(2,"  Read LOCAL_IMAGE_SIZE: \"".$self->{SETTINGS}->{LOCAL_IMAGE_SIZE}."\"");
         }
         elsif (/IMAGE_SIZE:\s+(\S*)\s*/) {
           $self->{SETTINGS}->{IMAGE_SIZE} = $1;
           chomp $self->{SETTINGS}->{IMAGE_SIZE};
-$self->debug(1,"  Read IMAGE_SIZE: \"".$self->{SETTINGS}->{IMAGE_SIZE}."\"");
+$self->debug(2,"  Read IMAGE_SIZE: \"".$self->{SETTINGS}->{IMAGE_SIZE}."\"");
         }
         elsif (/LOCAL_ALBUM_SIZE:\s+(\S*)\s*/) {
           $self->{SETTINGS}->{LOCAL_ALBUM_SIZE} = $1;
           chomp $self->{SETTINGS}->{LOCAL_ALBUM_SIZE};
-$self->debug(1,"  Read LOCAL_ALBUM_SIZE: \"".$self->{SETTINGS}->{LOCAL_ALBUM_SIZE}."\"");
+$self->debug(2,"  Read LOCAL_ALBUM_SIZE: \"".$self->{SETTINGS}->{LOCAL_ALBUM_SIZE}."\"");
         }
         elsif (/ALBUM_SIZE:\s+(\S*)\s*/) {
           $self->{SETTINGS}->{ALBUM_SIZE} = $1;
           chomp $self->{SETTINGS}->{ALBUM_SIZE};
-$self->debug(1,"  Read ALBUM_SIZE: \"".$self->{SETTINGS}->{ALBUM_SIZE}."\"");
+$self->debug(2,"  Read ALBUM_SIZE: \"".$self->{SETTINGS}->{ALBUM_SIZE}."\"");
         }
         elsif (/LOCAL_THUMB_SIZE:\s+(\S*)\s*/) {
           $self->{SETTINGS}->{LOCAL_THUMB_SIZE} = $1;
           chomp $self->{SETTINGS}->{LOCAL_THUMB_SIZE};
-$self->debug(1,"  Read LOCAL_THUMB_SIZE: \"".$self->{SETTINGS}->{LOCAL_THUMB_SIZE}."\"");
+$self->debug(2,"  Read LOCAL_THUMB_SIZE: \"".$self->{SETTINGS}->{LOCAL_THUMB_SIZE}."\"");
         }
         elsif (/THUMB_SIZE:\s+(\S*)\s*/) {
           $self->{SETTINGS}->{THUMB_SIZE} = $1;
           chomp $self->{SETTINGS}->{THUMB_SIZE};
-$self->debug(1,"  Read THUMB_SIZE: \"".$self->{SETTINGS}->{THUMB_SIZE}."\"");
+$self->debug(2,"  Read THUMB_SIZE: \"".$self->{SETTINGS}->{THUMB_SIZE}."\"");
         }
         elsif (/LOCAL_META_KEYWORDS:\s+(\S.*)\s*$/) {
           $self->{SETTINGS}->{LOCAL_META_KEYWORDS} = $1;
           chomp $self->{SETTINGS}->{LOCAL_META_KEYWORDS};
-$self->debug(1,"  Read LOCAL_META_KEYWORDS: \"".$self->{SETTINGS}->{LOCAL_META_KEYWORDS}."\"");
+$self->debug(2,"  Read LOCAL_META_KEYWORDS: \"".$self->{SETTINGS}->{LOCAL_META_KEYWORDS}."\"");
         }
         elsif (/META_KEYWORDS:\s+(\S.*)\s*$/) {
           $self->{SETTINGS}->{META_KEYWORDS} = $1;
           chomp $self->{SETTINGS}->{META_KEYWORDS};
-$self->debug(1,"  Read META_KEYWORDS: \"".$self->{SETTINGS}->{META_KEYWORDS}."\"");
+$self->debug(2,"  Read META_KEYWORDS: \"".$self->{SETTINGS}->{META_KEYWORDS}."\"");
         }
         elsif (/FOOTER:\s+(\S.*\S)\s*$/) {
           $self->{SETTINGS}->{FOOTER} = $1;
           chomp $self->{SETTINGS}->{FOOTER};
-$self->debug(1,"  Read FOOTER: \"".$self->{SETTINGS}->{FOOTER}."\"");
+$self->debug(2,"  Read FOOTER: \"".$self->{SETTINGS}->{FOOTER}."\"");
         }
       elsif (/HEADER:\s+(.+)/) {
         $self->{SETTINGS}->{HEADER} = $1;
           chomp $self->{SETTINGS}->{HEADER};
-$self->debug(1,"  Read HEADER: \"".$self->{SETTINGS}->{HEADER}."\"");
+$self->debug(2,"  Read HEADER: \"".$self->{SETTINGS}->{HEADER}."\"");
       }
       elsif (/ISTATS:\s+(.+)/) {
         $self->{SETTINGS}->{ISTATS} = $1;
           chomp $self->{SETTINGS}->{ISTATS};
-$self->debug(1,"  Read ISTATS: \"".$self->{SETTINGS}->{ISTATS}."\"");
+$self->debug(2,"  Read ISTATS: \"".$self->{SETTINGS}->{ISTATS}."\"");
       }
         elsif (/GAMMA:\s+(\S.*)\s*$/) {
           $self->{SETTINGS}->{GAMMA} = $1;
           chomp $self->{SETTINGS}->{GAMMA};
-$self->debug(1,"  Read GAMMA: \"".$self->{SETTINGS}->{GAMMA}."\"");
+$self->debug(2,"  Read GAMMA: \"".$self->{SETTINGS}->{GAMMA}."\"");
         }
         elsif (/UNSHARP:\s+(\S.*)\s*$/) {
           $self->{SETTINGS}->{UNSHARP} = $1;
           chomp $self->{SETTINGS}->{UNSHARP};
-$self->debug(1,"  Read UNSHARP: \"".$self->{SETTINGS}->{UNSHARP}."\"");
+$self->debug(2,"  Read UNSHARP: \"".$self->{SETTINGS}->{UNSHARP}."\"");
         }
         elsif (/IMAGE_QUALITY:\s+(\S.*)\s*$/) {
           $self->{SETTINGS}->{IMAGE_QUALITY} = $1;
           chomp $self->{SETTINGS}->{IMAGE_QUALITY};
-$self->debug(1,"  Read IMAGE_QUALITY: \"".$self->{SETTINGS}->{IMAGE_QUALITY}."\"");
+$self->debug(2,"  Read IMAGE_QUALITY: \"".$self->{SETTINGS}->{IMAGE_QUALITY}."\"");
         }
         elsif (/THUMB_QUALITY:\s+(\S.*)\s*$/) {
           $self->{SETTINGS}->{THUMB_QUALITY} = $1;
           chomp $self->{SETTINGS}->{THUMB_QUALITY};
-$self->debug(1,"  Read THUMB_QUALITY: \"".$self->{SETTINGS}->{THUMB_QUALITY}."\"");
+$self->debug(2,"  Read THUMB_QUALITY: \"".$self->{SETTINGS}->{THUMB_QUALITY}."\"");
         }
 
       }
@@ -625,7 +628,7 @@ $self->debug(1,"  Unknown entry in ".$directory."/".$self->{SETTINGS}->{DATAFILE
 $self->debug(1,"  No ".$self->{SETTINGS}->{DATAFILE}." found in \"".$directory."\" - reading contents.");
     $self->add_all_directories($directory);
     if ($self->{ENTRIES}[0]) {
-$self->debug(1,"  Adding break between the directories and files section");
+$self->debug(3,"  Adding break between the directories and files section");
       my $break = Break->new(undef);
       push @{$self->{ENTRIES}}, $break;
     }
@@ -1064,18 +1067,18 @@ sub generate_image {
     mkdir $self->{SETTINGS}->{THUMBS_DIR};
     mkdir $self->{SETTINGS}->{IMAGES_DIR};
 
-  $self->debug(1,"  Copying files");
+  $self->debug(3,"  Copying files");
     if ($self->{SETTINGS}->{CSS_FILE}) {
-  $self->debug(1,"    Copying ".$self->{SETTINGS}->{CSS_FILE}."");
+  $self->debug(3,"    Copying ".$self->{SETTINGS}->{CSS_FILE}."");
       copyToCwd($self->{SETTINGS}->{CSS_FILE});
     }
     if ($self->{SETTINGS}->{LOCAL_CSS_FILE}) {
-  $self->debug(1,"    Copying ".$self->{SETTINGS}->{LOCAL_CSS_FILE}."");
+  $self->debug(3,"    Copying ".$self->{SETTINGS}->{LOCAL_CSS_FILE}."");
       copyToCwd($self->{SETTINGS}->{LOCAL_CSS_FILE});
     }
 
     if ($self->{SETTINGS}->{ABOUT_FILE}) {
-  $self->debug(1,"    Copying ".$self->{SETTINGS}->{ABOUT_FILE}."");
+  $self->debug(3,"    Copying ".$self->{SETTINGS}->{ABOUT_FILE}."");
       copyToCwd($self->{SETTINGS}->{ABOUT_FILE});
     }
 
@@ -1525,7 +1528,7 @@ if ((!$target) || (! -d $target)) {
 }
 
 my $settings = Settings->new();
-$settings->{DEBUG_LEVEL} = 5;
+#$settings->{DEBUG_LEVEL} = 5;
 
 my $album = Album->new(Cwd::cwd(), undef, $settings->clone(), 0);
 $album->generate($target);
