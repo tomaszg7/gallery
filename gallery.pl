@@ -4,6 +4,8 @@
 #  skrypt muflona 
 #  przerobiony tak,ze: 
 
+# 1.5.2
+#  1. bug z zlym dzialanie thumb_quality
 # 1.5.1
 #  1. opcja ISTATS
 # 1.5.0
@@ -146,10 +148,10 @@ sub new {
   $self->{CSS_FILE} = undef;
   $self->{LOCAL_CSS_FILE} = undef;
   $self->{ABOUT_FILE} = undef;
-  $self->{TABLE_WIDTH} = undef;
+  $self->{TABLE_WIDTH} = 995;
   $self->{IMAGE_SIZE} = "900x600";
   $self->{LOCAL_IMAGE_SIZE} = undef;
-  $self->{ALBUM_SIZE} = "312x208";
+  $self->{ALBUM_SIZE} = "300x200";
   $self->{LOCAL_ALBUM_SIZE} = undef;
   $self->{THUMB_SIZE} = "231x154";
   $self->{LOCAL_THUMB_SIZE} = undef;
@@ -1145,6 +1147,7 @@ $self->debug(5,"    Generating existing but out-of-date image (".$src_image.")")
             if ($self->{SETTINGS}->{UNSHARP}) {
               $magick->UnsharpMask(geometry=>$self->{SETTINGS}->{UNSHARP});
             }
+            $magick->set(quality=>$self->{SETTINGS}->{THUMB_QUALITY});
             $magick->write("jpg:".$dest_thumb);
             $thumb_cache->update($src_image, basename($dest_thumb), $album_size,
                                  $self->{SETTINGS}->{GAMMA}, $self->{SETTINGS}->{UNSHARP},
