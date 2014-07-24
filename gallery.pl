@@ -115,7 +115,7 @@ sub new {
   $self->{LINK_RSS} = "RSS feed";
   $self->{RSS_FILE} = "rss.xml";
   $self->{TREE_SEPARATOR} = "&diams;";
-  $self->{EXIF_ICON} = "http://tomaszg.pl/foto/info2.gif";
+  $self->{EXIF_ICON} = "http://tomaszg.pl/foto/info.gif";
 
   $self->{FOOTER} = "";
   $self->{LOCAL_FOOTER} = undef;
@@ -214,9 +214,14 @@ sub new {
       my $short;
       my $long;
 
-      if ($$info{ShortFocal} =~ /(\d+) mm/)
+      if ($$info{ShortFocal} =~ /(\d+) mm/) 
 	{ $short = $1; }
+	elsif ($$info{MinFocalLength} =~ /(\d+) mm/)
+	{ $short = $1; }
+
       if ($$info{LongFocal} =~ /(\d+) mm/)
+	{ $long = $1; }
+	elsif ($$info{MaxFocalLength} =~ /(\d+) mm/)
 	{ $long = $1; }
 
       if (($short == $long)  && ($short >1)) {
@@ -654,7 +659,7 @@ $self->debug(3,"  Adding break between the directories and files section");
 $self->debug(5,"");
 
        my $nazwa;
-      if ($self->{DIRNAME} =~ /\d\d(\S.*)/)
+      if ($self->{DIRNAME} =~ /^\d\d(\S.*)/)
         { $nazwa = $1; }
       elsif ($self->{DIRNAME} =~ /(\S.*)\d/)
         { $nazwa = $1; }
