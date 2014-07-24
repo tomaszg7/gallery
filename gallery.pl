@@ -4,6 +4,8 @@
 #  skrypt muflona 
 #  przerobiony tak,ze: 
 #
+# 1.6.0
+#   1. linkowanie istniejacych galerii
 # 1.5.5
 #  1. update statystyk: na kazdej stronie
 # 1.5.4
@@ -295,6 +297,30 @@ sub new {
 
 
 ##########################################
+
+package Link;
+
+sub new {
+  shift;
+  my $address = shift;
+  my $title = shift;
+  
+  my $self = {};
+  $self->{OBJECT} = "link";
+  $self->{LINK} = $address;
+  my $par = File::Basename::dirname($address);
+  my $nazw = File::Basename::basename($address);
+  $self->{HIGHLIGHT} = $par."/thumbs/".$nazw;
+  $self->{TITLE} = $title;
+  bless $self;
+  return $self;
+}
+
+
+
+##########################################
+
+
 package Album;
 
 sub new {
@@ -543,22 +569,31 @@ $self->debug(5,"    File: \"".$filename."\"");
         my $highlight;
         my $filename;
         my $title;
-        if (/^(!)?(.*);(.*)\S*/) {
+	my $link;
+	if (/^(!)?(\@)?(.*);(.*)\S*/) {
           $highlight = $1;
-          $filename = $2;
-          $title = $3;
-        } elsif (/^(!)?(.*)\S*/) {
+          $filename = $3;
+          $title = $4;
+	  $link = $2;
+        } elsif (/^(!)?(\@)?(.*)\S*/) {
           $highlight = $1;
-          $filename = $2;
+          $filename = $3;
           $title = undef;
+	  $link = $2;
         }
         if ($filename eq $self->{SETTINGS}->{HIGHLIGHT}) {
           $highlight = "!";
         }
 
         chomp $filename;
-
-        if ( -d $filename ) {
+	
+	if ($link eq "@") {
+    	  my $link = Link->new($filename,$title);
+          push @{$self->{ENTRIES}}, $link;
+          if ($highlight eq "!") {
+            $self->{HIGHLIGHT} = $link->{HIGHLIGHT};
+          }
+	} elsif ( -d $filename ) {
           my $album = Album->new($directory."/".$filename, $self, $self->{SETTINGS}->clone(), $self->{NEST}+1);
           push @{$self->{ENTRIES}}, $album;
           $self->{CONTAINS_ALBUMS} = "y";
@@ -602,7 +637,7 @@ $self->debug(1,"  Adding break between the directories and files section");
   if (!$self->{HIGHLIGHT}) {
     my $entry = $self->{ENTRIES}[0];
     my $n = 0;
-    while (($entry->{OBJECT} ne "image") && ($entry->{OBJECT} ne "album")) {
+    while (($entry->{OBJECT} ne "image") && ($entry->{OBJECT} ne "album") && ($entry->{OBJECT} ne "link")) {
       $n++;
       if ($n >= $self->{N_ENTRIES}) {
         print ("No images nor directories in \"".$directory."\"!!! - aborting\n");
@@ -777,6 +812,17 @@ sub generate_index {
           } else {
             $col--;
           }
+          $n++;
+        }
+        elsif ( $self->{ENTRIES}[$n]->{OBJECT} eq "link" ) {
+            print ("    <td".width($columns)." class=\"thumb_album\">\n");
+            print ("     <a href=\"".$self->{ENTRIES}[$n]->{LINK}."/index.html\">\n");
+            print ("      <img class=\"thumb_album\" src=\"".$self->{ENTRIES}[$n]->{HIGHLIGHT}.".jpg\" alt=\"".$title."\">\n");
+            if ($self->{ENTRIES}[$n]->{TITLE}) {
+              print ("      <br>".$self->{ENTRIES}[$n]->{TITLE}."\n");
+            }
+            print ("     </a>\n");
+            print ("    </td>\n");
           $n++;
         }
         elsif ( $self->{ENTRIES}[$n]->{OBJECT} eq "image" ) {
