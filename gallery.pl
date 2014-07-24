@@ -4,6 +4,9 @@
 #  skrypt muflona 
 #  przerobiony tak,ze: 
 
+# 1.5.4
+#  1. zaktualizowane do CVS-2006-07-24
+#  2. google: revisit
 # 1.5.3
 #  1. LOCAL_FOOTER
 # 1.5.2
@@ -55,8 +58,8 @@ sub new {
   if ( -f $filename ) {
     open (my $file, $filename);
     while (<$file>) {
-       if (/(.+)\t(.+)\t(.+)\t(.+)\t(.+)\t(.+)/) {
-         $self->{DATA}{$1} = $2."\t".$3."\t".$4."\t".$5."\t".$6;
+      if (/(.+)\t(.+)\t(.+)\t(.+)\t(.+)\t(.+)/) {
+        $self->{DATA}{$1} = $2."\t".$3."\t".$4."\t".$5."\t".$6;
         chomp $self->{DATA}{$1};
       }
     }
@@ -83,7 +86,6 @@ sub match {
     return undef;
   }
 }
-
 
 sub update {
   my $self = shift;
@@ -145,7 +147,9 @@ sub new {
   $self->{OPTIONS_EXIF} = undef;
   $self->{OPTIONS_NOCONV} = undef;
   $self->{OPTIONS_HIDDEN} = undef;
+  $self->{OPTIONS_LEAF} = undef;
   $self->{FORCE_IMAGES} = undef;
+  $self->{DEBUG_LEVEL} = 1;
   $self->{LENSES} = ();
   $self->{HIGHLIGHT} = "highlight.jpg";
   $self->{CSS_FILE} = undef;
@@ -186,7 +190,8 @@ sub clone {
   $clone->{LOCAL_THUMB_SIZE} = undef;
   $clone->{LOCAL_COLUMNS} = undef;
   $clone->{LOCAL_META_KEYWORDS} = undef;
-  $clone->{HIDDEN} = undef;
+  $clone->{OPTIONS_HIDDEN} = undef;
+  $clone->{OPTIONS_LEAF} = undef;
   bless $clone, ref $self;
 }
 
@@ -200,8 +205,7 @@ sub new {
   my $self = {};
   $self->{OBJECT} = "image";
   $self->{FILENAME} = shift;
-  $self->{BASENAME} = File::Basename::basename($self->{FILENAME},());
-  #File::Basename::basename($self->{FILENAME},('.jpg','.jpeg','.JPG','.JPEG'));
+  $self->{BASENAME} = File::Basename::basename($self->{FILENAME},('.jpg','.jpeg','.JPG','.JPEG'));
   $self->{TITLE} = shift;
   $self->{DATE} = undef;
   my $settings = shift;
@@ -372,6 +376,10 @@ $self->debug(1,"  Disabled direct image copy");
               $self->{SETTINGS}->{OPTIONS_HIDDEN} = "y";
 $self->debug(1,"  Hiding this album in the upper-level listing");
             }
+            elsif (/\s*leaf\s*/) {
+              $self->{SETTINGS}->{OPTIONS_LEAF} = "y";
+$self->debug(1,"  Include this album in the RSS");
+            }
           }
         }
         elsif (/^LENS:\s+(\S+)\s+(\S.*)/) {
@@ -463,6 +471,7 @@ $self->debug(1,"  Read META_KEYWORDS: \"".$self->{SETTINGS}->{META_KEYWORDS}."\"
         }
         elsif (/FOOTER:\s+(\S.*\S)\s*$/) {
           $self->{SETTINGS}->{FOOTER} = $1;
+          chomp $self->{SETTINGS}->{FOOTER};
 $self->debug(1,"  Read FOOTER: \"".$self->{SETTINGS}->{FOOTER}."\"");
         }
       elsif (/HEADER:\s+(.+)/) {
@@ -758,20 +767,20 @@ sub generate_index {
             print ("    <td".width($columns)." class=\"thumb_album\">\n");
             print ("     <a href=\"".uri_escape($self->{ENTRIES}[$n]->{DIRNAME})."/index.html\">\n");
             print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".uri_escape($self->{ENTRIES}[$n]->{DIRNAME}).".jpg\" alt=\"".$title."\">\n");
-	    if ($self->{ENTRIES}[$n]->{TITLE}) {
+            if ($self->{ENTRIES}[$n]->{TITLE}) {
               print ("      <br>".$self->{ENTRIES}[$n]->{TITLE}."\n");
             }
             print ("     </a>\n");
             print ("    </td>\n");
           } else {
             $col--;
-	  }
+          }
           $n++;
         }
         elsif ( $self->{ENTRIES}[$n]->{OBJECT} eq "image" ) {
           print ("    <td".width($columns)." class=\"thumb_image\">\n");
           print ("     <a href=\"".uri_escape($self->{ENTRIES}[$n]->{BASENAME}).".html\">\n");
-          print ("      <img alt=\"image\" class=\"thumb_image\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".uri_escape($self->{ENTRIES}[$n]->{BASENAME})."\">\n");
+          print ("      <img class=\"thumb_image\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".uri_escape($self->{ENTRIES}[$n]->{BASENAME}).".jpg\" alt=\"zdjêcie ".$title."\">\n");
           if ($self->{ENTRIES}[$n]->{TITLE}) {
             print ("      <br>".$self->{ENTRIES}[$n]->{TITLE}."\n");
           }
@@ -875,75 +884,75 @@ sub generate_image {
   print ("<html>\n");
   print (" <head>\n");
   print ("  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=".$self->{SETTINGS}->{CHARSET}."\">\n");
-    $self->print_meta_keywords_tag();
-    $self->style_link();
-    $self->rss_meta();
-    if ($prev_link >= 0) {
-      print ("  <link rel=\"Prev\" href=\"".$self->{ENTRIES}[$prev_link]->{BASENAME}.".html\">\n");
-    }
-    print ("  <link rel=\"Contents\" href=\"index.html\">\n");
-    if ($next_link >= 0) {
-      print ("  <link rel=\"Next\" href=\"".$self->{ENTRIES}[$next_link]->{BASENAME}.".html\">\n");
-    }
-    print ("  <title>".$title."</title>\n");
-    print ("  <script type=\"text/javascript\">\n");
-    print ("    <!--\n");
-    print ("      function getKey(event) {\n");
-    print ("        if (!event) event = window.event;\n");
-    print ("        if (event.keyCode) code = event.keyCode;\n");
-    print ("        else if (event.which) code = event.which;\n");
-    print ("        if (event.shiftKey) {\n");
-    if ($prev_link >= 0) {
-      print ("          if (code == 37) {\n");
-      print ("            document.location = '".$self->{ENTRIES}[$prev_link]->{BASENAME}.".html';\n");
-      print ("          }\n");
-    }
-    print ("          if (code == 38) {\n");
-    print ("            document.location = 'index.html';\n");
+  $self->print_meta_keywords_tag();
+  $self->style_link();
+  $self->rss_meta();
+  if ($prev_link >= 0) {
+    print ("  <link rel=\"Prev\" href=\"".$self->{ENTRIES}[$prev_link]->{BASENAME}.".html\">\n");
+  }
+  print ("  <link rel=\"Contents\" href=\"index.html\">\n");
+  if ($next_link >= 0) {
+    print ("  <link rel=\"Next\" href=\"".$self->{ENTRIES}[$next_link]->{BASENAME}.".html\">\n");
+  }
+  print ("  <title>".$title."</title>\n");
+  print ("  <script type=\"text/javascript\">\n");
+  print ("    <!--\n");
+  print ("      function getKey(event) {\n");
+  print ("        if (!event) event = window.event;\n");
+  print ("        if (event.keyCode) code = event.keyCode;\n");
+  print ("        else if (event.which) code = event.which;\n");
+  print ("        if (event.shiftKey) {\n");
+  if ($prev_link >= 0) {
+    print ("          if (code == 37) {\n");
+    print ("            document.location = '".$self->{ENTRIES}[$prev_link]->{BASENAME}.".html';\n");
     print ("          }\n");
-    if ($next_link >= 0) {
-      print ("          if (code == 39) {\n");
-      print ("            document.location = '".$self->{ENTRIES}[$next_link]->{BASENAME}.".html';\n");
-      print ("          }\n");
-    } 
-    print ("        }\n");
-    print ("        return true;\n");
-    print ("      }\n");
-    print ("      document.onkeypress = getKey;\n");
-    print ("    // -->\n");
-    print ("  </script>\n");
-    print (" </head>\n");
-    print (" <body>\n");
-    print ("  <table style=\"width: ".$self->{SETTINGS}->{TABLE_WIDTH}."px;\" cellspacing=\"0\">\n");
-    print ("   <tr>\n");
-    print ("    <td ".width(-$columns)." class=\"title\">".$title."</td>\n");
-    print ("    <td ".width($columns)." class=\"date\">".$date."</td>\n");
-    print ("   </tr>\n");
-    print ("   <tr>\n");
-    print ("    <td class=\"parent_links\">\n");
-    $self->print_parent_links(0, "y");
-    print ("     (".$progress.")\n");
-    print ("    </td>\n");
-    print ("    <td class=\"nav_links\">\n");
-    if ($prev_link >= 0) {
-      print ("     <a href=\"".uri_escape($self->{ENTRIES}[$prev_link]->{BASENAME}).".html\">".$self->{SETTINGS}->{LINK_PREV}."</a>");
-    } else {
-      print ("     ".$self->{SETTINGS}->{LINK_PREV});
-    }
-    print ("&nbsp;&nbsp;&nbsp;<a href=\"index.html\">".$self->{SETTINGS}->{LINK_UP}."</a>&nbsp;&nbsp;&nbsp;");
-    if ($next_link >= 0) {
-      print ("<a href=\"".uri_escape($self->{ENTRIES}[$next_link]->{BASENAME}).".html\">".$self->{SETTINGS}->{LINK_NEXT}."</a>\n");
-    } else {
-      print ($self->{SETTINGS}->{LINK_NEXT}."\n");
-    } 
-    print ("    </td>\n");
-    print ("   </tr>\n");
+  }
+  print ("          if (code == 38) {\n");
+  print ("            document.location = 'index.html';\n");
+  print ("          }\n");
+  if ($next_link >= 0) {
+    print ("          if (code == 39) {\n");
+    print ("            document.location = '".$self->{ENTRIES}[$next_link]->{BASENAME}.".html';\n");
+    print ("          }\n");
+  } 
+  print ("        }\n");
+  print ("        return true;\n");
+  print ("      }\n");
+  print ("      document.onkeypress = getKey;\n");
+  print ("    // -->\n");
+  print ("  </script>\n");
+  print (" </head>\n");
+  print (" <body>\n");
+  print ("  <table style=\"width: ".$self->{SETTINGS}->{TABLE_WIDTH}."px;\" cellspacing=\"0\">\n");
+  print ("   <tr>\n");
+  print ("    <td ".width(-$columns)." class=\"title\">".$title."</td>\n");
+  print ("    <td ".width($columns)." class=\"date\">".$date."</td>\n");
+  print ("   </tr>\n");
+  print ("   <tr>\n");
+  print ("    <td class=\"parent_links\">\n");
+  $self->print_parent_links(0, "y");
+  print ("     (".$progress.")\n");
+  print ("    </td>\n");
+  print ("    <td class=\"nav_links\">\n");
+  if ($prev_link >= 0) {
+    print ("     <a href=\"".uri_escape($self->{ENTRIES}[$prev_link]->{BASENAME}).".html\">".$self->{SETTINGS}->{LINK_PREV}."</a>");
+  } else {
+    print ("     ".$self->{SETTINGS}->{LINK_PREV});
+  }
+  print ("&nbsp;&nbsp;&nbsp;<a href=\"index.html\">".$self->{SETTINGS}->{LINK_UP}."</a>&nbsp;&nbsp;&nbsp;");
+  if ($next_link >= 0) {
+    print ("<a href=\"".uri_escape($self->{ENTRIES}[$next_link]->{BASENAME}).".html\">".$self->{SETTINGS}->{LINK_NEXT}."</a>\n");
+  } else {
+    print ($self->{SETTINGS}->{LINK_NEXT}."\n");
+  } 
+  print ("    </td>\n");
+  print ("   </tr>\n");
 
 
 
     print ("   <tr>\n");
     print ("    <td class=\"image\" colspan=\"2\">\n");
-    print ("     <img alt=\"image\" class=\"image\" src=\"".$self->{SETTINGS}->{IMAGES_DIR}."/".$image->{BASENAME}."\">\n");
+    print ("     <img alt=\"image\" class=\"image\" src=\"".$self->{SETTINGS}->{IMAGES_DIR}."/".$image->{BASENAME}.".jpg\">\n");
     print ("    </td>\n");
     print ("   </tr>\n");
     if (-f $self->{ENTRIES}[$n]->{FILENAME}.".txt") {
@@ -1047,8 +1056,8 @@ sub generate_image {
     my $object_type = $self->{ENTRIES}[$n]->{OBJECT};
     if ($object_type eq "image") {
       $src_image = $self->{ENTRIES}[$n]->{FILENAME};
-      $dest_thumb = $self->{SETTINGS}->{THUMBS_DIR}."/".$self->{ENTRIES}[$n]->{BASENAME};
-      $dest_image = $self->{SETTINGS}->{IMAGES_DIR}."/".$self->{ENTRIES}[$n]->{BASENAME};
+      $dest_thumb = $self->{SETTINGS}->{THUMBS_DIR}."/".$self->{ENTRIES}[$n]->{BASENAME}.".jpg";
+      $dest_image = $self->{SETTINGS}->{IMAGES_DIR}."/".$self->{ENTRIES}[$n]->{BASENAME}.".jpg";
     } elsif ($object_type eq "album") {
       $src_image = $self->{ENTRIES}[$n]->{HIGHLIGHT}->{FILENAME};
       $dest_thumb = $self->{SETTINGS}->{THUMBS_DIR}."/".$self->{ENTRIES}[$n]->{DIRNAME}.".jpg";
@@ -1062,30 +1071,28 @@ sub generate_image {
         $convert_thumb = 1;
         $convert_image = 1;
 $self->debug(5,"    Forced generation of image/thumb (".$src_image.")");
-      } else
-     {
-      if ( ! -f $dest_thumb ) {
+      } elsif ( ! -f $dest_thumb ) {
         $convert_thumb = 1;
 $self->debug(5,"    Generating non-existing thumb (".$src_image.")");
-      } 
-      if ( ! -f $dest_image ) {
+      } elsif ( ! -f $dest_image ) {
           if ($object_type ne "album") { 
 $self->debug(5,"    Generating non-existing image (".$src_image.")");
             $convert_image = 1;
           }
       } 
-     }
 
       if (!$convert_image) {
-        if ($noconv && $object_type ne "album") {
-          if (timestamp($src_image)>timestamp($dest_image)) {
+        if ($noconv) {
+          if (! -f $dest_image) {
+            $convert_image = 1;
+          } elsif (timestamp($src_image)>timestamp($dest_image)) {
 $self->debug(5,"    Copying existing but out-of-date image (".$src_image.")");
             $convert_image = 1;
           }
         }
-        elsif ( $object_type eq "image" && (! $image_cache->match($src_image, basename($dest_image), $image_size,
-                                                                  $self->{SETTINGS}->{GAMMA},
-                                                                  $self->{SETTINGS}->{UNSHARP},
+        elsif ( $object_type eq "image" && (! $image_cache->match($src_image, basename($dest_image), $image_size, 
+                                                                  $self->{SETTINGS}->{GAMMA}, 
+                                                                  $self->{SETTINGS}->{UNSHARP}, 
                                                                   $self->{SETTINGS}->{IMAGE_QUALITY}))) {
 $self->debug(5,"    Generating existing but out-of-date image (".$src_image.")");
           $convert_image = 1;
@@ -1093,15 +1100,15 @@ $self->debug(5,"    Generating existing but out-of-date image (".$src_image.")")
       }
       if (!$convert_thumb) {
         if ( $object_type eq "album" && (! $thumb_cache->match($src_image, basename($dest_thumb), $album_size,
-                                                               $self->{SETTINGS}->{GAMMA},
-                                                               $self->{SETTINGS}->{UNSHARP},
+                                                               $self->{SETTINGS}->{GAMMA}, 
+                                                               $self->{SETTINGS}->{UNSHARP}, 
                                                                $self->{SETTINGS}->{THUMB_QUALITY} ))) {
           $convert_thumb = 1;
 $self->debug(5,"    Generating existing but out-of-date image (".$src_image.")");
         }
         if ( $object_type eq "image" && (! $thumb_cache->match($src_image, basename($dest_thumb), $thumb_size,
-                                                               $self->{SETTINGS}->{GAMMA},
-                                                               $self->{SETTINGS}->{UNSHARP},
+                                                               $self->{SETTINGS}->{GAMMA}, 
+                                                               $self->{SETTINGS}->{UNSHARP}, 
                                                                $self->{SETTINGS}->{THUMB_QUALITY} ))) {
           $convert_thumb = 1;
 $self->debug(5,"    Generating existing but out-of-date image (".$src_image.")");
@@ -1132,7 +1139,7 @@ $self->debug(5,"    Generating existing but out-of-date image (".$src_image.")")
               $magick->set(quality=>$self->{SETTINGS}->{IMAGE_QUALITY});
               $magick->write("jpg:".$dest_image);
               $image_cache->update($src_image, basename($dest_image), $image_size,
-                                   $self->{SETTINGS}->{GAMMA}, $self->{SETTINGS}->{UNSHARP},
+                                   $self->{SETTINGS}->{GAMMA}, $self->{SETTINGS}->{UNSHARP}, 
                                    $self->{SETTINGS}->{IMAGE_QUALITY});
             }
           }
@@ -1144,7 +1151,7 @@ $self->debug(5,"    Generating existing but out-of-date image (".$src_image.")")
             $magick->set(quality=>$self->{SETTINGS}->{THUMB_QUALITY});
             $magick->write("jpg:".$dest_thumb);
             $thumb_cache->update($src_image, basename($dest_thumb), $thumb_size,
-                                 $self->{SETTINGS}->{GAMMA}, $self->{SETTINGS}->{UNSHARP},
+                                 $self->{SETTINGS}->{GAMMA}, $self->{SETTINGS}->{UNSHARP}, 
                                  $self->{SETTINGS}->{THUMB_QUALITY});
           }
         } elsif ( $object_type eq "album" ) {
@@ -1156,7 +1163,7 @@ $self->debug(5,"    Generating existing but out-of-date image (".$src_image.")")
             $magick->set(quality=>$self->{SETTINGS}->{THUMB_QUALITY});
             $magick->write("jpg:".$dest_thumb);
             $thumb_cache->update($src_image, basename($dest_thumb), $album_size,
-                                 $self->{SETTINGS}->{GAMMA}, $self->{SETTINGS}->{UNSHARP},
+                                 $self->{SETTINGS}->{GAMMA}, $self->{SETTINGS}->{UNSHARP}, 
                                  $self->{SETTINGS}->{THUMB_QUALITY});
           }
         }
@@ -1190,7 +1197,7 @@ $self->debug(5,"    Generating html for \"".$self->{ENTRIES}[$n]->{FILENAME}."\"
       $self->generate_image($n, $columns);
     }
     if ( $self->{ENTRIES}[$n]->{OBJECT} eq "album" ) {
-      mkdir $self->{ENTRIES}[$n]->{DIRNAME};
+      mkdir $directory."/".$self->{ENTRIES}[$n]->{DIRNAME};
       $self->{ENTRIES}[$n]->generate($directory."/".$self->{ENTRIES}[$n]->{DIRNAME});
       chdir $directory;
     }
@@ -1346,9 +1353,9 @@ sub copy {
 sub compare_and_copy {
   my $source = shift;
   my $dest = shift;
-   if (!-f $dest) {
-     File::Copy::copy($source, $dest);
-   } elsif ( File::Compare::compare($source, $dest) != 0 ) {
+  if (!-f $dest) {
+    File::Copy::copy($source, $dest);
+  } elsif ( File::Compare::compare($source, $dest) != 0 ) {
     File::Copy::copy($source, $dest);
   }
 }
@@ -1386,14 +1393,15 @@ sub update_date_if_newer {
 sub push_dates_to_rss {
   my $self = shift;
   my $arr = shift;
-  if (!$self->{CONTAINS_ALBUMS}) {
-    if ($self->{DATE}) {
-      my $copy = $self->{DATE}->clone();
-      $copy->{TITLE} = $self->{TITLE};
-      $copy->{URL_PATH} = $self->{URL_PATH};
-      push @$arr, $copy;
+  if (!$self->{SETTINGS}->{HIDDEN}) {
+    if ($self->{SETTINGS}->{OPTIONS_LEAF}) {
+      if ($self->{DATE}) {
+        my $copy = $self->{DATE}->clone();
+        $copy->{TITLE} = $self->{TITLE};
+        $copy->{URL_PATH} = $self->{URL_PATH};
+        push @$arr, $copy;
+      }
     }
-  } else {
     for my $n (0 .. $self->{N_ENTRIES}-1) {
       if ($self->{ENTRIES}[$n]->{OBJECT} eq "album") {
         $self->{ENTRIES}[$n]->push_dates_to_rss(\@$arr);
@@ -1428,7 +1436,11 @@ sub generate_rss {
     print (RSS " <description> </description>\n");
     print (RSS " <language>en</language>\n");
     print (RSS " <copyright>".$album->{FOOTER}."</copyright>\n");
-    print (RSS " <lastBuildDate>".$array[0]->strftime("%a, %d %b %Y %H:%M:%S %z")."</lastBuildDate>\n");
+    if ($array[0]) {
+      print (RSS " <lastBuildDate>".$array[0]->strftime("%a, %d %b %Y %H:%M:%S %z")."</lastBuildDate>\n");
+    } else {
+      print (RSS " <lastBuildDate>Tue, 1 Jan 1980 00:00:00 +0000</lastBuildDate>\n");
+    }
 
     my $n = 15;
     ITEM_LOOP: for my $item (@array) {
@@ -1457,6 +1469,12 @@ if (!$ARGV[0]) {
 
 
 my $target = $ARGV[0];
+mkdir $target;
+$target = Cwd::realpath($target);
+if ((!$target) || (! -d $target)) {
+  print ("\nPlease specify a valid target directory as a parameter.\n\n");
+  exit (1);
+}
 
 my $settings = Settings->new();
 $settings->{DEBUG_LEVEL} = 5;
@@ -1464,4 +1482,6 @@ $settings->{DEBUG_LEVEL} = 5;
 my $album = Album->new(Cwd::cwd(), undef, $settings->clone(), 0);
 $album->generate($target);
 
-generate_rss($album, $target."rss.xml");
+generate_rss($album, $target."/rss.xml");
+
+
