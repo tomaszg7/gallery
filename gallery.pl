@@ -3,7 +3,9 @@
 # 
 #  skrypt muflona 
 #  przerobiony tak,ze: 
-
+#
+# 1.5.5
+#  1. update statystyk: na kazdej stronie
 # 1.5.4
 #  1. zaktualizowane do CVS-2006-07-24
 #  2. google: revisit
@@ -728,9 +730,9 @@ sub generate_index {
     print ("  <a href=\"../cgi-bin/stats.cgi\">Most viewed</a>&nbsp;&nbsp;&nbsp;   <a href=\"about.html\">About ".$self->{TITLE}."</a>\n");
     } 
   else{
-  print ("     ".$self->{SETTINGS}->{LINK_PREV}."&nbsp;&nbsp;&nbsp;");
+  print ("     <a href=\"/cgi-bin/stats2.cgi?".$self->{DIRNAME}."\">Most Viewed&nbsp;&nbsp;&nbsp;</a>".$self->{SETTINGS}->{LINK_PREV}."&nbsp;&nbsp;&nbsp;");
   if ($self->{PARENT_ALBUM}) {
-    print ("<a href=\"../index.html\">".$self->{SETTINGS}->{LINK_UP}."</a>");
+    print (" <a href=\"../index.html\">".$self->{SETTINGS}->{LINK_UP}."</a>");
   } else {
     print ($self->{SETTINGS}->{LINK_UP});
   }
