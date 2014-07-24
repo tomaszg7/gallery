@@ -1,11 +1,12 @@
+#!/usr/bin/perl
 #
 #  skrypt muflona
 #  przerobiony tak,ze:
 #  1)jesli w katalogu znajduje sie plik about.html to ZAMIAST Prev,Up,Next bedzie About Author
 #  2)jesli w katalogu znajduje sie plik nazwa_pliku_graficznego.txt (konczacego sie na txt) to 
 #    zawartosc tego pliku zostaje dopisana do stronki z ta konkretna fotka
-#
-#!/usr/bin/perl
+#  3)uwzglednia zmienna Footer
+#  4)zmienione parametry konwersji i rozmiar obrazka
 
 use strict;
 
@@ -103,11 +104,11 @@ sub new {
   $self->{HIGHLIGHT} = "highlight.jpg";
   $self->{CSS_FILE} = undef;
   $self->{LOCAL_CSS_FILE} = undef;
-  $self->{IMAGE_SIZE} = "750x500";
+  $self->{IMAGE_SIZE} = "1000x700";
   $self->{LOCAL_IMAGE_SIZE} = undef;
   $self->{THUMB_SIZE} = "210x140";
   $self->{LOCAL_THUMB_SIZE} = undef;
-  $self->{CONVERT_OPTIONS} = "-gamma 1.3";
+  $self->{CONVERT_OPTIONS} = "-sharpen 3 -quality 90";
   $self->{LOCAL_CONVERT_OPTIONS} = undef;
   $self->{COLUMNS} = 4;
   $self->{LOCAL_COLUMNS} = undef;
@@ -274,6 +275,10 @@ $self->debug(1,"  Read LOCAL_COLUMNS: \"".$self->{SETTINGS}->{LOCAL_COLUMNS}."\"
       elsif (/COLUMNS:\s+([123456789])\s*/) {
         $self->{SETTINGS}->{COLUMNS} = $1;
 $self->debug(1,"  Read COLUMNS: \"".$self->{SETTINGS}->{COLUMNS}."\"");
+      }
+      elsif (/FOOTER:\s+(.+)/) {
+        $self->{SETTINGS}->{FOOTER} = $1;
+$self->debug(1,"  Read FOOTER: \"".$self->{SETTINGS}->{COLUMNS}."\"");
       }
       elsif (/LOCAL_IMAGE_SIZE:\s+(\S*)\s*/) {
         $self->{SETTINGS}->{LOCAL_IMAGE_SIZE} = $1;
@@ -686,14 +691,11 @@ sub generate_image {
   print ("    </td>\n");
   print ("   </tr>\n");
   print ("  </table>\n");
-  print ("   <br><script language=\"javascript\">");
-  print ("  <!--");
-  print ("  var ipath='http://212.33.73.7/~gawryl/istats5'");
-  print ("  document.write('<SCR' + 'IPT LANGUAGE=\"JavaScript\" SRC=\"http://'+ ipath +'/istats.js\"><\/SCR' + 'IPT>');");
-  print ("  //-->");
-  print ("  </script>");
-  print ("  <!-- end istats code -->");
-
+  print ("  <br><center><script language=\"javascript\"><!-- \n var ipath=\'labfiz.uwb.edu.pl/~tomaszg/istats5\'\n");
+  print ("  document.write(\'<SCR\' + \'IPT LANGUAGE=\"JavaScript\"  
+    SRC=\"http://\'+ ipath +\'/istats.js\"><\/SCR\' + \'IPT>\');\n");
+      print ("  //-->\n");
+        print ("  </script></center>\n");
   print (" </body>\n");
   print ("</html>\n");
   close STDOUT;
@@ -859,9 +861,8 @@ sub debug {
 ##########################################
 package main;
 
-my $settings = Settings->new("/home/gawryl/public_html/galeria/settings");
+my $settings = Settings->new("/mnt/q/Foto/muflon-gall/settings");
 #$settings->{FORCE_IMAGES} = "y";
 $settings->{DEBUG_LEVEL} = 5;
-my $album = Album->new("/home/gawryl/public_html/galeria", undef, $settings->clone(), 0);
-$album->generate("/home/gawryl/public_html/galeria");
-
+my $album = Album->new("/mnt/q/Foto/muflon-gall", undef, $settings->clone(), 0);
+$album->generate("/mnt/q/Foto/muflon-gall/html");
