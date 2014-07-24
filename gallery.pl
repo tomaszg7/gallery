@@ -2,6 +2,10 @@
 #
 #  skrypt muflona
 #  przerobiony tak,ze:
+
+
+
+# numer 1.1.0
 #  1)jesli w katalogu znajduje sie plik about.html to ZAMIAST Prev,Up,Next bedzie About Author
 #  2)jesli w katalogu znajduje sie plik nazwa_pliku_graficznego.txt (konczacego sie na txt) to 
 #    zawartosc tego pliku zostaje dopisana do stronki z ta konkretna fotka
@@ -12,6 +16,8 @@
 #  7)poprawione data z exifa
 #  8)obok about tworzy statsy
 #  9)poprawione cache zgodnie z 5)
+# 10)przerzucone ustawienia do pliku album.dat (TODO: sciezki tez)
+# 11)bug przy wczytywaniu convert_options i local_convert_options, footer
 
 use strict;
 
@@ -111,13 +117,13 @@ sub new {
   $self->{HIGHLIGHT} = "highlight.jpg";
   $self->{CSS_FILE} = undef;
   $self->{LOCAL_CSS_FILE} = undef;
-  $self->{IMAGE_SIZE} = "950x700";
+  $self->{IMAGE_SIZE} = undef;
   $self->{LOCAL_IMAGE_SIZE} = undef;
-  $self->{THUMB_SIZE} = "270x180";
+  $self->{THUMB_SIZE} = undef;
   $self->{LOCAL_THUMB_SIZE} = undef;
-  $self->{CONVERT_OPTIONS} = "-sharpen 3 -quality 90";
+  $self->{CONVERT_OPTIONS} = undef;
   $self->{LOCAL_CONVERT_OPTIONS} = undef;
-  $self->{COLUMNS} = 3;
+  $self->{COLUMNS} = undef;
   $self->{LOCAL_COLUMNS} = undef;
 
   bless $self;
@@ -315,12 +321,18 @@ $self->debug(1,"  Read LOCAL_THUMB_SIZE: \"".$self->{SETTINGS}->{LOCAL_THUMB_SIZ
         chomp $self->{SETTINGS}->{THUMB_SIZE};
 $self->debug(1,"  Read THUMB_SIZE: \"".$self->{SETTINGS}->{THUMB_SIZE}."\"");
       }
-      elsif (/LOCAL_CONVERT_OPTIONS:\s+(\S*)\s*/) {
+      elsif (/^LOCAL_CONVERT_OPTIONS:\s+(.+)/) {
+#      elsif (/LOCAL_CONVERT_OPTIONS:\s+(\S*)\s*/) {
         $self->{SETTINGS}->{LOCAL_CONVERT_OPTIONS} = $1;
         chomp $self->{SETTINGS}->{LOCAL_CONVERT_OPTIONS};
 $self->debug(1,"  Read LOCAL_CONVERT_OPTIONS: \"".$self->{SETTINGS}->{LOCAL_CONVERT_OPTIONS}."\"");
       }
-      elsif (/CONVERT_OPTIONS:\s+(\S*)\s*/) {
+      elsif (/^TITLE:\s+(.+)/) {
+        $self->{TITLE} = $1;
+$self->debug(1,"  Read TITLE: \"".$self->{TITLE}."\"");
+      }
+#      elsif (/CONVERT_OPTIONS:\s+(\S*)\s*/) {
+      elsif (/^CONVERT_OPTIONS:\s+(.+)/) {
         $self->{SETTINGS}->{CONVERT_OPTIONS} = $1;
         chomp $self->{SETTINGS}->{CONVERT_OPTIONS};
 $self->debug(1,"  Read CONVERT_OPTIONS: \"".$self->{SETTINGS}->{CONVERT_OPTIONS}."\"");
@@ -599,8 +611,8 @@ sub generate_index {
   print ("     ".$self->{SETTINGS}->{FOOTER}."\n");
   print ("    </td>\n");
   print ("   </tr>\n");
-#  print ("   <tr>\n");
-# print ("         <td colspan=2 class=footer>\n");
+  print ("   <tr>\n");
+#  print ("         <td colspan=2 class=footer>\n");
 #  print (" (c) 2005 Tomasz Golinski\n");
 #  print ("          </td>\n");
 #  print ("  	   </tr>\n");
@@ -733,7 +745,7 @@ sub generate_image {
   print ("     ".$self->{SETTINGS}->{FOOTER}."\n");
   print ("    </td>\n");
   print ("   </tr>\n");
-#  print ("   <tr>\n");
+  print ("   <tr>\n");
 #  print ("         <td colspan=2 class=footer>\n");
 #  print (" (c) 2005 Tomasz Golinski\n");
 #  print ("          </td>\n");
@@ -757,7 +769,7 @@ sub generate {
 $self->debug(1,"Generating structure for \"".$self->{TITLE}."\"");
   mkdir $directory;
   chdir $directory;
-#$self->debug(1,"tomaszg dir ".$directory);
+$self->debug(1,"tomaszg dir ".$directory);
 
   mkdir $self->{SETTINGS}->{THUMBS_DIR};
   mkdir $self->{SETTINGS}->{IMAGES_DIR};
