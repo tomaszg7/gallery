@@ -1,0 +1,60 @@
+ CHANGELOG
+
+1.8.0
+  1. dodanie obslugi opcji:
+	-h	help
+	-u	tryb update
+	-o	output_dir [default: html]
+  2. male poprawki debugleveli
+1.7.3
+  1. linki z @ i more maja target=_blank
+1.7.2
+  1. poprawka do BANDS, ¿eby widzia³ ro20
+1.7.1
+  1. exiftool 8.94 compatibility: Changed names of Canon Sort/LongFocal tags to Min/MaxFocalLength
+1.7.0
+  1. linki do MORE
+1.6.7
+  1. obrazek linkiem do "next"
+  2. ukrywanie exifa
+  3. bug z regexpem z linkowaniem. non-greedy
+1.6.6
+  1. header tez na stronach ze zdjeciami
+1.6.5
+  1. tooltip z nawigacja (REVERTED)
+1.6.4
+  1. linkowanie do istniejacych obrazkow
+  2. 20 pozycji w rss
+1.6.3.
+  1. rozszerzone tagi "alt"
+  2. iso z tagu "ISO" zeby nie bylo iso1234
+1.6.2
+  1. dziala z nowszym exiftoolem ("mm" w focal)
+  2. linki do stats znikaja bez istats, about skrocony
+1.6.1
+  1. poprawione debuglevele
+1.6.0
+  1. linkowanie istniejacych galerii
+1.5.5
+  1. update statystyk: na kazdej stronie
+1.5.4
+  1. zaktualizowane do CVS-2006-07-24
+  2. google: revisit
+1.5.3
+  1. LOCAL_FOOTER
+1.5.2
+  1. bug z zlym dzialanie thumb_quality
+1.5.1
+  1. opcja ISTATS
+1.5.0
+ upgrade do wersji sgallery-0.5, zmiany w stosunku do oryginalu:
+  1. dodanie metering i EV do exifa dla innych aparatow niz 1D
+  2. jesli w katalogu znajduje sie plik about.html to ZAMIAST Prev,Up,Next bedzie About Author 
+  3. jesli w katalogu znajduje sie plik nazwa_pliku_graficznego.txt (konczacego sie na txt) to  
+     zawartosc tego pliku zostaje dopisana do strony z ta konkretna fotka 
+  4. obok about tworzy statsy 
+  5. dodanie "alt" do tagow "img" 
+  6. godzina z exifa do daty 
+  7. uwzglednia zmienna header
+  8. nazwy  .jpg.html
+  9. bug z noconv

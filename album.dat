@@ -1,0 +1,18 @@
+TITLE: [your_title]
+CSS: style.css
+LOCAL_CSS: local.css
+IMAGE_SIZE: 950x700
+THUMB_SIZE: 270x180
+ALBUM_SIZE: 300x200
+FOOTER: [your_footer]
+ISTATS: www.homepage.pl/istats5
+UNSHARP: 0x0.5+2+0
+IMAGE_QUALITY: 90
+THUMB_QUALITY: 80
+OPTIONS: exif
+LENS: 50-50    Canon EF 50/1.8 II
+COLUMNS: 3
+RSS_BASE: http://www.homepage.pl/
+album1
+BREAK: [break]
+album2

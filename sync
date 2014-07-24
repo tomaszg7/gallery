@@ -1,0 +1,1 @@
+rsync -avz html/ -e ssh user@host:/directory

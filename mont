@@ -1,0 +1,1 @@
+montage -background black -geometry 300x200 -tile 2x html/$1/thumbs/* $1.jpg
