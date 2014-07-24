@@ -127,6 +127,7 @@ sub new {
   $self->{FORCE_IMAGES} = undef;
   $self->{DEBUG_LEVEL} = 1;
   $self->{LENSES} = ();
+  $self->{BANDS} = ();
   $self->{HIGHLIGHT} = "highlight.jpg";
   $self->{CSS_FILE} = undef;
   $self->{LOCAL_CSS_FILE} = undef;
@@ -148,6 +149,8 @@ sub new {
   $self->{THUMB_QUALITY} = 80;
   $self->{RSS_BASE} = undef;
   $self->{ISTATS} = undef;
+  $self->{MORE_LINK} = undef;
+  $self->{MORE_NAME} = undef;
 
   bless $self;
 
@@ -398,6 +401,11 @@ $self->debug(2,"  Include this album in the RSS");
           $self->{SETTINGS}->{LENSES}{$1} = $2;
 $self->debug(2,"  Read lens: ".$1." == ".$2);
         }
+        elsif (/^BAND:\s+(\S+)\s+(\S+)\s+(\S.*)/) {
+          $self->{SETTINGS}->{BANDS}{$1}{LINK} = $2;
+          $self->{SETTINGS}->{BANDS}{$1}{NAME} = $3;
+$self->debug(2,"  Read band: ".$1." == ".$2.", ".$3);
+        }
         elsif (/^BREAK:\s?(.*)/) {
           my $title = $1;
           my $break = Break->new($title);
@@ -495,6 +503,13 @@ $self->debug(2,"  Read HEADER: \"".$self->{SETTINGS}->{HEADER}."\"");
         $self->{SETTINGS}->{ISTATS} = $1;
           chomp $self->{SETTINGS}->{ISTATS};
 $self->debug(2,"  Read ISTATS: \"".$self->{SETTINGS}->{ISTATS}."\"");
+      }
+      elsif (/MORE:\s+(.+);(.+)/) {
+        $self->{SETTINGS}->{MORE_LINK} = $1;
+        $self->{SETTINGS}->{MORE_NAME} = $2;
+          chomp $self->{SETTINGS}->{MORE_LINK};
+          chomp $self->{SETTINGS}->{MORE_NAME};
+$self->debug(2,"  Read MORE: \"".$self->{SETTINGS}->{MORE_LINK}." ".$self->{SETTINGS}->{MORE_NAME}."\"");
       }
         elsif (/GAMMA:\s+(\S.*)\s*$/) {
           $self->{SETTINGS}->{GAMMA} = $1;
@@ -638,6 +653,19 @@ $self->debug(3,"  Adding break between the directories and files section");
   }
 $self->debug(5,"");
 
+       my $nazwa;
+      if ($self->{DIRNAME} =~ /\d\d(\S.*)/)
+        { $nazwa = $1; }
+      elsif ($self->{DIRNAME} =~ /(\S.*)\d/)
+        { $nazwa = $1; }
+      else 
+        { $nazwa = $self->{DIRNAME}; }
+      if ($self->{SETTINGS}->{BANDS}{$nazwa})
+      {
+       $self->{SETTINGS}->{MORE_LINK} = $self->{SETTINGS}->{BANDS}{$nazwa}{LINK};
+       $self->{SETTINGS}->{MORE_NAME} = $self->{SETTINGS}->{BANDS}{$nazwa}{NAME};
+      }
+
   chdir $pushd;
   return $self;
 }
@@ -770,6 +798,15 @@ sub generate_index {
   }
   print ("    </td>\n");
   print ("   </tr>\n");
+
+     if ( $self->{SETTINGS}->{MORE_LINK} ) {
+             
+	  print ("   <tr><td colspan=\"2\"></td>\n");
+	  print ("    <td class=\"more_link\">\n");
+	  print ("    <span class=\"more_link\"><a href=\"".$self->{SETTINGS}->{MORE_LINK}."\">Wiêcej zdjêæ ".$self->{SETTINGS}->{MORE_NAME}."</a></span>\n");
+	  print ("    </td>\n");
+	  print ("   </tr>\n");
+	}
 
   my $n = 0;
   ROWS: while ($n < $self->{N_ENTRIES}) {
