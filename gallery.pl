@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+
 use strict;
 use Image::ExifTool;
 use Image::Magick;
@@ -209,9 +210,9 @@ sub new {
       my $short;
       my $long;
 
-      if ($$info{ShortFocal} =~ /(\d+)mm/)
+      if ($$info{ShortFocal} =~ /(\d+) mm/)
 	{ $short = $1; }
-      if ($$info{LongFocal} =~ /(\d+)mm/)
+      if ($$info{LongFocal} =~ /(\d+) mm/)
 	{ $long = $1; }
 
       if (($short == $long)  && ($short >1)) {
@@ -729,10 +730,8 @@ sub generate_index {
   print ("      document.onkeypress = getKey;\n");
   print ("    // -->\n");
   print ("  </script>\n");
-  print ("  <script type=\"text/javascript\" src=\"/tooltip.js\"></script>");
   print (" </head>\n");
   print (" <body>\n");
-  print (" <div id=\"t1\" class=\"tip\">Nawigacja z klawiatury:<br><br>Shift-lewo - poprzednie zdjêcie<br>Shift-prawo - nastêpne zdjêcie<br>Shift-góra - powrót</div>");
   if ($self->{SETTINGS}->{HEADER} ne "&nbsp;"){ 
   print ($self->{SETTINGS}->{HEADER}."\n");} 
   print ("  <table style=\"width: ".$self->{SETTINGS}->{TABLE_WIDTH}."px;\" cellspacing=\"0\">\n");
@@ -744,8 +743,8 @@ sub generate_index {
   print ("    <td".colspan($columns-1)." class=\"parent_links\">\n");
   $self->print_parent_links(0, "n");
   print ("    </td>\n");
+  print ("    <td class=\"nav_links\">\n");
   if ( -f "about.html"){ 
-     print ("    <td class=\"nav_links\">\n");
      if ( $self->{SETTINGS}->{ISTATS} ) {
 	print ("  <a href=\"../cgi-bin/stats.cgi\">Most viewed</a>&nbsp;&nbsp;&nbsp;   <a href=\"about.html\">About</a>\n");
 	}
@@ -755,7 +754,6 @@ sub generate_index {
      
     } 
   else{
-     print ("    <td class=\"nav_links\" onmouseout=\"popUp(event,'t1')\" onmouseover=\"popUp(event,'t1')\"  onclick=\"return false\">\n");
      if ( $self->{SETTINGS}->{ISTATS} ) {
 	  print ("     <a href=\"/cgi-bin/stats2.cgi?".$self->{DIRNAME}."\">Most Viewed&nbsp;&nbsp;&nbsp;</a>".$self->{SETTINGS}->{LINK_PREV}."&nbsp;&nbsp;&nbsp;");
 	}
@@ -965,10 +963,10 @@ sub generate_image {
   print ("      document.onkeypress = getKey;\n");
   print ("    // -->\n");
   print ("  </script>\n");
-  print ("  <script type=\"text/javascript\" src=\"/tooltip.js\"></script>");
   print (" </head>\n");
   print (" <body>\n");
-  print (" <div id=\"t1\" class=\"tip\">Nawigacja z klawiatury:<br><br>Shift-lewo - poprzednie zdjêcie<br>Shift-prawo - nastêpne zdjêcie<br>Shift-góra - powrót</div>");
+  if ($self->{SETTINGS}->{HEADER} ne "&nbsp;"){ 
+  print ($self->{SETTINGS}->{HEADER}."\n");} 
   print ("  <table style=\"width: ".$self->{SETTINGS}->{TABLE_WIDTH}."px;\" cellspacing=\"0\">\n");
   print ("   <tr>\n");
   print ("    <td ".width(-$columns)." class=\"title\">".$title."</td>\n");
@@ -979,7 +977,7 @@ sub generate_image {
   $self->print_parent_links(0, "y");
   print ("     (".$progress.")\n");
   print ("    </td>\n");
-  print ("    <td class=\"nav_links\" onmouseout=\"popUp(event,'t1')\" onmouseover=\"popUp(event,'t1')\"  onclick=\"return false\">\n");
+  print ("    <td class=\"nav_links\">\n");
   if ($prev_link >= 0) {
     print ("     <a href=\"".uri_escape($self->{ENTRIES}[$prev_link]->{BASENAME}).".html\">".$self->{SETTINGS}->{LINK_PREV}."</a>");
   } else {
