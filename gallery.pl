@@ -1580,6 +1580,7 @@ if ($opts{'h'}){
 }
 
 my $update_dir=$opts{'u'};
+$update_dir =~ s{/\z}{};
 
 if ($opts{'h'}) {
     $target = $opts{'o'};

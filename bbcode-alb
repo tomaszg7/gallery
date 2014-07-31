@@ -1,0 +1,6 @@
+echo [center]
+for s in * ; do 
+echo [url=$1/$s][img]$1/thumbs/$s.jpg[/img][/url]
+echo
+done
+echo [/center]
