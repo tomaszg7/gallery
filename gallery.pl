@@ -1593,7 +1593,12 @@ if ($opts{'h'}) {
 mkdir $target;
 $target = Cwd::realpath($target);
 if (! -d $target) {
-  print ("\nPlease specify a valid target directory as a parameter.\n\n");
+  print ("\nPlease specify a valid target directory as a parameter to -o.\n\n");
+  exit (1);
+}
+
+if (($update_dir) && (! -d $update_dir)) {
+  print ("\nPlease specify a valid directory as a parameter to -u.\n\n");
   exit (1);
 }
 
