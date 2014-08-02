@@ -13,6 +13,7 @@ use File::Compare;
 use File::Temp;
 use File::stat;
 use Getopt::Std;
+use Storable qw(dclone);
 
 my $exifTool = new Image::ExifTool;
 
@@ -160,7 +161,8 @@ sub new {
 
 sub clone {
   my $self = shift;
-  my $clone = { %$self }; 
+  my $clone = Storable::dclone($self);
+#  my $clone = { %$self }; 
   $clone->{CSS_FILE} = undef;
   $clone->{LOCAL_FOOTER} = undef;
   $clone->{LOCAL_CSS_FILE} = undef;
