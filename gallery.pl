@@ -542,11 +542,18 @@ $self->debug(2,"  Read THUMB_QUALITY: \"".$self->{SETTINGS}->{THUMB_QUALITY}."\"
         }
 
       }
-      elsif (/\+(.+)\s*/) {
-        my $mask = $1; chomp $mask;
+      elsif (/(r*)\+(.+)\s*/) {
+        my $mask = $2; chomp $mask;
 $self->debug(1,"  Including from mask: \"".$mask."\"");
 
-        for my $filename (sort(glob($mask))) {
+	my @list;
+        if ($1) {
+		@list = reverse(sort(glob($mask)));
+	} else {
+		@list = sort(glob($mask));
+	}
+
+        for my $filename (@list) {
           if ((-d $filename) && (($self->{UPDATE} eq undef) || ($self->{UPDATE} eq $filename))) {
 $self->debug(1,"    Directory: \"".$filename."\"");
             my $album = Album->new($directory."/".$filename, $self, $self->{SETTINGS}->clone(), $self->{NEST}+3,undef);
