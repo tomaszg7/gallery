@@ -1582,10 +1582,12 @@ sub generate_rss {
 
 my %opts;
 my $target;
-Getopt::Std::getopts('o:u:h', \%opts);
+Getopt::Std::getopts('o:u:hs', \%opts);
+
+my $home_dir = Cwd::cwd();
 
 if ($opts{'h'}){
-    die "Usage: [-o output_dir] [-u update_dir] [-h]\n";
+    die "Usage: [-o output_dir] [-u update_dir] [-h] [-s]\n";
 }
 
 my $update_dir=$opts{'u'};
@@ -1595,7 +1597,7 @@ if ($opts{'h'}) {
     $target = $opts{'o'};
     } else {
     $target = "html";
-    }
+}
 
 mkdir $target;
 $target = Cwd::realpath($target);
@@ -1619,4 +1621,7 @@ if (! $update_dir) {
     generate_rss($album, $target."/rss.xml");
 }
 
-
+if ($opts{'s'}) {
+  chdir $home_dir;
+  system ("./sync") ==0 or print ("\n Can't sync (-s), script not found.\n\n"); 
+}
