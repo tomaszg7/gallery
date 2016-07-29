@@ -786,8 +786,8 @@ sub generate_index {
   print ($self->{SETTINGS}->{HEADER}."\n");} 
   print ("  <table style=\"width: ".$self->{SETTINGS}->{TABLE_WIDTH}."px;\" cellspacing=\"0\">\n");
   print ("   <tr>\n");
-  print ("    <td".colspan($columns-1)." class=\"title\">".$title."</td>\n");
-  print ("    <td class=\"date\">".$date."</td>\n");
+  print ("    <td".colspan($columns)." class=\"title\">".$title."</td>\n");
+#   print ("    <td class=\"date\">".$date."</td>\n");
   print ("   </tr>\n");
   print ("   <tr>\n");
   print ("    <td".colspan($columns-1)." class=\"parent_links\">\n");
