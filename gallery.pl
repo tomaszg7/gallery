@@ -230,10 +230,9 @@ sub new {
       if (($short == $long)  && ($short >1)) {
         $show_focal = undef;
       }
-      $_ = $short."-".$long;
+#       $_ = $short."-".$long;
 
 #      printf("short ".$$info{ShortFocal}." long ".$$info{LongFocal}."\n");
-
 
       my $lens = $settings->{LENSES}{$short."-".$long};
       if ($lens) {
@@ -569,7 +568,7 @@ $self->debug(1,"    Directory: \"".$filename."\"");
 $self->debug(2,"    Skipping directory: \"".$filename."\" due to update mode.");
           } elsif ((-f $filename) && ($filename ne $self->{SETTINGS}->{DATAFILE}) && ($filename ne $css_basename) && ($filename ne $local_css_basename) && !($filename =~ /txt$/)) {
 $self->debug(5,"    File: \"".$filename."\"");
-            my $image = Image->new($directory."/".$filename, undef, %$self->{SETTINGS});
+            my $image = Image->new($directory."/".$filename, undef, $self->{SETTINGS});
             $image->{IMAGE_INDEX} = $self->{N_IMAGES};
             $self->{N_IMAGES}++;
             push @{$self->{ENTRIES}}, $image;
@@ -624,7 +623,7 @@ $self->debug(5,"    File: \"".$filename."\"");
           } elsif (-d $filename) {
 $self->debug(2,"    Skipping directory: \"".$filename."\" due to update mode.");
         } elsif ((-f $filename) && ($filename ne $self->{SETTINGS}->{DATAFILE}) && ($filename ne $css_basename) && ($filename ne $local_css_basename)) {
-          my $image = Image->new($directory."/".$filename, $title, %$self->{SETTINGS});
+          my $image = Image->new($directory."/".$filename, $title, $self->{SETTINGS});
           $image->{IMAGE_INDEX} = $self->{N_IMAGES};
           $self->{N_IMAGES}++;
           push @{$self->{ENTRIES}}, $image;
@@ -719,7 +718,7 @@ sub add_all_files {
   for my $filename (sort(glob("*"))) {
     if ((-f $filename) && (substr($filename,0,1) ne ".")) {
 $self->debug(5,"  Adding image \"".$filename."\"");
-      my $image = Image->new($directory."/".$filename, undef, %$self->{SETTINGS});
+      my $image = Image->new($directory."/".$filename, undef, $self->{SETTINGS});
       $image->{IMAGE_INDEX} = $self->{N_IMAGES};
       $self->{N_IMAGES}++;
       push @{$self->{ENTRIES}}, $image;
