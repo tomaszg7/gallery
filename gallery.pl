@@ -1581,21 +1581,27 @@ sub generate_rss {
 
 my %opts;
 my $target;
-Getopt::Std::getopts('o:u:hs', \%opts);
+Getopt::Std::getopts('o:u:hsr', \%opts);
 
 my $home_dir = Cwd::cwd();
 
 if ($opts{'h'}){
-    die "Usage: [-o output_dir] [-u update_dir] [-h] [-s]\n";
+    die "Usage: [-o output_dir] [-u update_dir] [-h] [-s] [-r]\n";
 }
 
 my $update_dir=$opts{'u'};
 $update_dir =~ s{/\z}{};
+my $rename_files=$opts{'r'};
+
 
 if ($opts{'h'}) {
     $target = $opts{'o'};
     } else {
     $target = "html";
+}
+
+if ($rename_files && !$update_dir){
+    print "-r works only with -u, ignoring.\n";
 }
 
 mkdir $target;
@@ -1608,6 +1614,12 @@ if (! -d $target) {
 if (($update_dir) && (! -d $update_dir)) {
   print ("\nPlease specify a valid directory as a parameter to -u.\n\n");
   exit (1);
+}
+
+if ($rename_files && $update_dir){
+    chdir $update_dir;
+    system ("exiftool '-FileName<CreateDate' -d i%Y%m%d_%H%M%S%%-c.%%e img*");
+    chdir $home_dir;
 }
 
 my $settings = Settings->new();
