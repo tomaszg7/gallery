@@ -126,6 +126,7 @@ sub new {
   $self->{OPTIONS_NOCONV} = undef;
   $self->{OPTIONS_HIDDEN} = undef;
   $self->{OPTIONS_LEAF} = undef;
+  $self->{OPTIONS_COUNT} = undef;
   $self->{FORCE_IMAGES} = undef;
   $self->{DEBUG_LEVEL} = 1;
   $self->{LENSES} = ();
@@ -402,6 +403,10 @@ $self->debug(2,"  Hiding this album in the upper-level listing");
             elsif (/\s*leaf\s*/) {
               $self->{SETTINGS}->{OPTIONS_LEAF} = "y";
 $self->debug(2,"  Include this album in the RSS");
+            }
+            elsif (/\s*count\s*/) {
+              $self->{SETTINGS}->{OPTIONS_COUNT} = "y";
+$self->debug(2,"  Print image count in albums");
             }
           }
         }
@@ -857,9 +862,12 @@ sub generate_index {
             print ("     <a href=\"".uri_escape($self->{ENTRIES}[$n]->{DIRNAME})."\">\n");
             print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".uri_escape($self->{ENTRIES}[$n]->{DIRNAME}).".jpg\" alt=\" zdjêcia ".$self->{ENTRIES}[$n]->{TITLE}."\">\n");
             if ($self->{ENTRIES}[$n]->{TITLE}) {
-              print ("      <br>".$self->{ENTRIES}[$n]->{TITLE}."\n");
+              print ("      <br>".$self->{ENTRIES}[$n]->{TITLE});
+              if ($self->{SETTINGS}->{OPTIONS_COUNT}) {
+                print (" [".$self->{ENTRIES}[$n]->{N_IMAGES}."]");
+              }
             }
-            print ("     </a>\n");
+            print ("\n     </a>\n");
             print ("    </td>\n");
           } else {
             $col--;
