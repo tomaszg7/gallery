@@ -127,6 +127,7 @@ sub new {
   $self->{OPTIONS_HIDDEN} = undef;
   $self->{OPTIONS_LEAF} = undef;
   $self->{OPTIONS_COUNT} = undef;
+  $self->{OPTIONS_COUNT_DIR} = undef;
   $self->{FORCE_IMAGES} = undef;
   $self->{DEBUG_LEVEL} = 1;
   $self->{LENSES} = ();
@@ -332,7 +333,8 @@ sub new {
   $self->{ENTRIES} = ();
   $self->{N_ENTRIES} = 0;
   $self->{N_IMAGES} = 0;
-  $self->{CONTAINS_ALBUMS} = undef;
+  $self->{N_DIRS} = 0;
+#  $self->{CONTAINS_ALBUMS} = undef;
   $self->{SETTINGS} = shift;
   $self->{NEST} = shift;
   $self->{UPDATE} = shift;
@@ -403,6 +405,10 @@ $self->debug(2,"  Hiding this album in the upper-level listing");
             elsif (/\s*leaf\s*/) {
               $self->{SETTINGS}->{OPTIONS_LEAF} = "y";
 $self->debug(2,"  Include this album in the RSS");
+            }
+            elsif (/\s*count_dir\s*/) {
+              $self->{SETTINGS}->{OPTIONS_COUNT_DIR} = "y";
+$self->debug(2,"  Print directories count in albums");
             }
             elsif (/\s*count\s*/) {
               $self->{SETTINGS}->{OPTIONS_COUNT} = "y";
@@ -562,7 +568,8 @@ $self->debug(1,"  Including from mask: \"".$mask."\"");
 $self->debug(1,"    Directory: \"".$filename."\"");
             my $album = Album->new($directory."/".$filename, $self, $self->{SETTINGS}->clone(), $self->{NEST}+3,undef);
             push @{$self->{ENTRIES}}, $album;
-            $self->{CONTAINS_ALBUMS} = "y";
+#            $self->{CONTAINS_ALBUMS} = "y";
+            $self->{N_DIRS}++;
             if ($album->{DATE}) {
               $self->update_date_if_newer($album->{DATE});
             }
@@ -611,6 +618,7 @@ $self->debug(5,"    File: \"".$filename."\"");
 	if ($link eq "@") {
     	  my $link = Link->new($filename,$title);
           push @{$self->{ENTRIES}}, $link;
+          $self->{N_DIRS}++;
           if ($highlight eq "!") {
             $self->{HIGHLIGHT} = $link->{HIGHLIGHT};
           }
@@ -618,7 +626,8 @@ $self->debug(5,"    File: \"".$filename."\"");
 #$self->debug(2,"       u=".$self->{UPDATE}.", f=".$filename);
           my $album = Album->new($directory."/".$filename, $self, $self->{SETTINGS}->clone(), $self->{NEST}+1,undef);
           push @{$self->{ENTRIES}}, $album;
-          $self->{CONTAINS_ALBUMS} = "y";
+#          $self->{CONTAINS_ALBUMS} = "y";
+          $self->{N_DIRS}++;
           if ($album->{DATE}) {
             $self->update_date_if_newer($album->{DATE});
           }
@@ -689,6 +698,12 @@ $self->debug(5,"");
       {
        $self->{SETTINGS}->{MORE_LINK} = $self->{SETTINGS}->{BANDS}{$nazwa}{LINK};
        $self->{SETTINGS}->{MORE_NAME} = $self->{SETTINGS}->{BANDS}{$nazwa}{NAME};
+      }
+
+# hide hidden albums from counting in N_DIRS
+      if ($self->{SETTINGS}->{OPTIONS_HIDDEN})
+      {
+        $self->{PARENT_ALBUM}->{N_DIRS}--;
       }
 
   chdir $pushd;
@@ -865,6 +880,9 @@ sub generate_index {
               print ("      <br>".$self->{ENTRIES}[$n]->{TITLE});
               if ($self->{SETTINGS}->{OPTIONS_COUNT}) {
                 print (" [".$self->{ENTRIES}[$n]->{N_IMAGES}."]");
+              }
+              if ($self->{SETTINGS}->{OPTIONS_COUNT_DIR}) {
+                print (" (".$self->{ENTRIES}[$n]->{N_DIRS}.")");
               }
             }
             print ("\n     </a>\n");
@@ -1308,7 +1326,7 @@ $self->debug(5,"    Generating index.html");
     $columns = $self->{SETTINGS}->{LOCAL_COLUMNS};
   }
   if ( $columns eq "auto" ) {
-    if ($self->{CONTAINS_ALBUMS}) {
+    if ($self->{N_DIRS}) {
       $columns = 3;
     } else {
       $columns = 4;
