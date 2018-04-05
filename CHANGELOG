@@ -1,4 +1,36 @@
- CHANGELOG
+CHANGELOG
+============
+
+2018.04.05
+
+    Update documentation
+
+2018.02.27
+
+    Add option "count" to include image number in index
+    Add option "count_dir" to include directories number in index (including links, but excluding hidden dirs)
+
+2017.12.05
+
+    Add -r option to automatically rename img_* files to i%Y%m%d_%H%M%S. Todo: make pattern configurable
+
+2016.09.17
+
+    Compatibility with Perl 5.22, fix "Can't use a hash as a reference" error
+
+2016.07.29
+
+    Get rid of date on index pages
+    Add -s option to sync after generating the gallery
+
+2014.11.28
+
+    Added reverse sort: r+glob
+
+2014.08.03
+
+    Proper "deep" cloning of object via Storage
+    Check if -u parameter has valid value
 
 1.8.0
   1. dodanie obslugi opcji:
