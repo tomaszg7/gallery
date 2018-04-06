@@ -35,4 +35,4 @@ Quick start
 See the [USAGE](USAGE.md) file for details.
 
 (C) 2006 Daniel Rychcik (muflon /at/ ais /dot/ pl)  
-(C) 2006-2018 Tomasz Goli?ski (tomaszg@math.uwb.edu.pl)
+(C) 2006-2018 Tomasz Goliński (tomaszg@math.uwb.edu.pl)
