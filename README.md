@@ -21,7 +21,7 @@ What we've got here is a Perl script. It requires:
 *   File::stat
 *   Storable
 
-If you would like to see some real-life examples, head to <http://photosite.pl> to see the gallery of the original author of the script, or to my gallery [Tomasz Golinski](http://tomaszg.pl/).
+If you would like to see some real-life examples, head to <http://photosite.pl> to see the gallery of the original author of the script, or to my gallery [Tomasz Goliński](http://tomaszg.pl/).
 
 Quick start
 ---------
@@ -34,5 +34,5 @@ Quick start
 
 See the [USAGE](USAGE.md) file for details.
 
-(C) 2006 Daniel Rychcik (muflon /at/ ais /dot/ pl)
+(C) 2006 Daniel Rychcik (muflon /at/ ais /dot/ pl)  
 (C) 2006-2018 Tomasz Goli?ski (tomaszg@math.uwb.edu.pl)

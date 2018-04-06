@@ -21,7 +21,7 @@ What we've got here is a Perl script. It requires:
 *   File::stat
 *   Storable
 
-If you would like to see some real-life examples, head to <http://photosite.pl> to see the gallery of the original author of the script, or to my gallery [Tomasz Golinski](http://tomaszg.pl/).
+If you would like to see some real-life examples, head to <http://photosite.pl> to see the gallery of the original author of the script, or to my gallery [Tomasz Goliński](http://tomaszg.pl/).
 
 Quick start
 ---------
@@ -56,68 +56,66 @@ The idea behind such approach is the following: Imagine that one of your albums 
 Tag reference
 -------------
 
-* `\# ...` Line beginning with `#` is treated as a comment and ignored
+* `# ...` Line beginning with `#` is treated as a comment and ignored
 
-* `TITLE: _string_` Title of the gallery
+* `TITLE: string` Title of the gallery
 
-* `DATE: _string_` What you want to put in the top-right corner. Note that some reasonable defaults are used, like the EXIF info or the directory creation time. What's more, if you try to specify manually some date and there will be image **newer** than this date in the album - its date will be used
+* `HIGHLIGHT: filename` By default, the thumbnail of a gallery is generated from the first image on a page. Here you can specify another one
 
-* `BREAK: _string_` Spacer between groups of images
+* `DATE: string` What you want to put in the top-right corner. Note that some reasonable defaults are used, like the EXIF info or the directory creation time. What's more, if you try to specify manually some date and there will be image **newer** than this date in the album - its date will be used
 
-* `ABOUT: _string_` File to put in the "about the author" link on the bottom of each page. This works a bit like the CSS tag below, in a sense that it's inherited by all the sub-levels (however, there is just one file that can be put there).
+* `BREAK: string` Spacer between groups of images
 
-* `RSS_BASE: _url_` If specified, causes the RSS to be generated, with the given URL (needs to be complete, http://...) as a base
+* `ABOUT: string` File to put in the "about the author" link on the bottom of each page. This works a bit like the CSS tag below, in a sense that it's inherited by all the sub-levels (however, there is just one file that can be put there).
 
-* `CSS: _filename_  `, `LOCAL_CSS: _filename_` CSS file to use. You just need to put them in the same directory as album.dat, the HTML links will be arranged properly. Note that the style sheets are really 'cascading' - this means, that if you've had some `CSS` tags on the upper levels of your hierarchy, the HTML links to them will be generated.
+* `RSS_BASE: url` If specified, causes the RSS to be generated, with the given URL (needs to be complete, http://...) as a base
 
-* `HIGHLIGHT: _filename_` By default, the thumbnail of a gallery is generated from the first image on a page. Here you can specify another one
+* `CSS: filename  `, `LOCALCSS: filename` CSS file to use. You just need to put them in the same directory as album.dat, the HTML links will be arranged properly. Note that the style sheets are really 'cascading' - this means, that if you've had some `CSS` tags on the upper levels of your hierarchy, the HTML links to them will be generated.
 
-* `COLUMNS: _number_  `, `LOCAL_COLUMNS: _number_` Number of columns on page
+* `COLUMNS: number  `, `LOCALCOLUMNS: number` Number of columns on page
 
-* `TABLE_WIDTH: _number_` What to put as "width" in HTML
+* `TABLE_WIDTH: number` What to put as "width" in HTML
 
-* `IMAGE_SIZE: _NNNxNNN_ `, `LOCAL\_IMAGE\_SIZE: _NNNXNNN_` Full size image resolution
+* `IMAGE_SIZE: NNNxNNN `, `LOCAL_IMAGE_SIZE: NNNxNNN` Full size image resolution
 
-* `ALBUM_SIZE: _NNNxNNN_`, `LOCAL\_ALBUM\_SIZE: _NNNXNNN_` Resolution for thumbnails of the albums
+* `ALBUM_SIZE: NNNxNNN`, `LOCAL_ALBUM_SIZE: NNNxNNN` Resolution for thumbnails of the albums
 
-* `THUMB_SIZE: _NNNxNNN_`, `LOCAL\_THUMB\_SIZE: _NNNXNNN_` Resolution for thumbnails of the images
+* `THUMB_SIZE: NNNxNNN`, `LOCAL_THUMB_SIZE: NNNxNNN` Resolution for thumbnails of the images
 
-* `META_KEYWORDS: _string_`, `LOCAL\_META\_KEYWORDS: _string_` Strings to put in the HTML header. Name of the gallery and the upper-level galleries are always included.
+* `META_KEYWORDS: string`, `LOCAL_META_KEYWORDS: string` Strings to put in the HTML header. Name of the gallery and the upper-level galleries are always included.
 
-* `UNSHARP: _geometry_` Optional Unsharp Mask (ImageMagick syntax)
+* `UNSHARP: geometry` Optional Unsharp Mask (ImageMagick syntax)
 
-* `GAMMA: _float_` Optional gamma conversion
+* `GAMMA: float` Optional gamma conversion
 
-* `IMAGE_QUALITY: _integer_` JPG quality for full size images
+* `IMAGE_QUALITY: integer` JPG quality for full size images
 
-* `THUMB_QUALITY: _integer_` JPG quality for album/image thumbnails
+* `THUMB_QUALITY: integer` JPG quality for album/image thumbnails
 
 * `OPTIONS:  option, option, ...` Triggers for options. Currently recognized:
 
-*  `noexif` - disable display of the EXIF information _(default)_
-*   `exif` - enable display of the EXIF information
-*   `noconv` - disable conversion of the big images (they will be copied directly)
-*   `conv` - enable conversion of the big images _(default)_
-*   `hidden` - this album will not show up in the upper-level album lists
-*   `leaf` - include this album in RSS
-*   `count` - include number of images [N] in album name
-*   `count_dir` - include number of directories (N) in album name, including links but excluding hidden
+    *  `exif/noexif` - enable/disable display of the EXIF information (default: disabled)
+    *   `conv/noconv` - enable/disable conversion of the big images (default: enabled)
+    *   `hidden` - this album will not show up in the upper-level album lists
+    *   `leaf` - include this album in RSS
+    *   `count` - include number of images [N] in album name
+    *   `countdir` - include number of directories (N) in album name, including links but excluding hidden
 
-* `LENS: _XX-YY description_` Define a lens for the EXIF recognition. The script can often detect the zoom range of the lens, but not the exact model - it's a way to help it. The best practice is to put all your lenses in the main album.dat of the gallery
+* `LENS: XX-YY description` Define a lens for the EXIF recognition. The script can often detect the zoom range of the lens, but not the exact model - it's a way to help it. The best practice is to put all your lenses in the main album.dat of the gallery
 
-* `HEADER: _string_`, `FOOTER: _string_`, `LOCAL_FOOTER: _string_` Text for the top and the bottom line of the page
+* `HEADER: string`, `FOOTER: string`, `LOCALFOOTER: string` Text for the top and the bottom line of the page
 
-* `BANDS: _name_ _url_ _string_` Support for placing a link to `_url_` on all albums with directory `_name_`. Last string is description to be put there.
+* `BANDS: name url string` Support for placing a link to `url` on all albums with directory `name`. Last string is description to be put there.
 
 * `ISTATS:` Legacy option supporting deprecated statistics gathering engine
 
-* `+_mask_` Include all the files/directories that match the _mask_ (unix shell regexp)
+* `+mask` Include all the files/directories that match the mask (unix shell regexp)
 
-* `r+_mask_` Include all the files/directories that match the _mask_ **in reverse order** (unix shell regexp)
+* `r+mask` Include all the files/directories that match the mask **in reverse order** (unix shell regexp)
 
-* `@_url_;_string_` Include link to an existing gallery/image located at `_url_` with title `_string_`. Thumbnail is expected to be available in a default location for this script
+* `@url;string` Include link to an existing gallery/image located at `url` with title `string`. Thumbnail is expected to be available in a default location for this script
 
-* `_string_` Everything else is treated as the dirname/filename to include
+* `string` Everything else is treated as the dirname/filename to include
 
 Misc. notes
 -----------
@@ -149,5 +147,5 @@ Download
 
 To grab the code, go to <https://github.com/tomaszg7/gallery>. The original script is available at <http://sgallery.sourceforge.net/>.
 
-(C) 2006 Daniel Rychcik (muflon /at/ ais /dot/ pl)
+(C) 2006 Daniel Rychcik (muflon /at/ ais /dot/ pl)  
 (C) 2006-2018 Tomasz Goliński (tomaszg@math.uwb.edu.pl)
