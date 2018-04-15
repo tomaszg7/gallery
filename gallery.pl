@@ -176,6 +176,8 @@ sub clone {
   $clone->{LOCAL_META_KEYWORDS} = undef;
   $clone->{OPTIONS_HIDDEN} = undef;
   $clone->{OPTIONS_LEAF} = undef;
+  $clone->{OPTIONS_COUNT} = undef;
+  $clone->{OPTIONS_COUNT_DIR} = undef;
   bless $clone, ref $self;
 }
 
