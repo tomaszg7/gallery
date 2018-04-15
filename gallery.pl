@@ -880,13 +880,25 @@ sub generate_index {
             print ("      <img class=\"thumb_album\" src=\"".$self->{SETTINGS}->{THUMBS_DIR}."/".uri_escape($self->{ENTRIES}[$n]->{DIRNAME}).".jpg\" alt=\" zdjêcia ".$self->{ENTRIES}[$n]->{TITLE}."\">\n");
             if ($self->{ENTRIES}[$n]->{TITLE}) {
               print ("      <br>".$self->{ENTRIES}[$n]->{TITLE});
-              if ($self->{SETTINGS}->{OPTIONS_COUNT}) {
-                print (" [".$self->{ENTRIES}[$n]->{N_IMAGES}."]");
+
+              if ($self->{SETTINGS}->{OPTIONS_COUNT} and $self->{SETTINGS}->{OPTIONS_COUNT_DIR}) {
+                if ($self->{ENTRIES}[$n]->{N_IMAGES} > $self->{ENTRIES}[$n]->{N_DIRS}) {
+					print (" [".$self->{ENTRIES}[$n]->{N_IMAGES}."]");
+				}
+				else {
+					print (" (".$self->{ENTRIES}[$n]->{N_DIRS}.")");
+				}
               }
-              if ($self->{SETTINGS}->{OPTIONS_COUNT_DIR}) {
-                print (" (".$self->{ENTRIES}[$n]->{N_DIRS}.")");
-              }
+			else {
+				if ($self->{SETTINGS}->{OPTIONS_COUNT}) {
+					print (" [".$self->{ENTRIES}[$n]->{N_IMAGES}."]");
+				}
+				if ($self->{SETTINGS}->{OPTIONS_COUNT_DIR}) {
+					print (" (".$self->{ENTRIES}[$n]->{N_DIRS}.")");
+				}
+			}
             }
+
             print ("\n     </a>\n");
             print ("    </td>\n");
           } else {
