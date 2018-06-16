@@ -120,7 +120,7 @@ sub new {
   $self->{EXIF_ICON} = "http://tomaszg.pl/foto/info.gif";
 
   $self->{FOOTER} = "";
-  $self->{LOCAL_FOOTER} = undef;
+#  $self->{LOCAL_FOOTER} = undef;
   $self->{HEADER} = "&nbsp;";
   $self->{OPTIONS_EXIF} = undef;
   $self->{OPTIONS_NOCONV} = undef;
@@ -166,7 +166,7 @@ sub clone {
   my $clone = Storable::dclone($self);
 #  my $clone = { %$self }; 
   $clone->{CSS_FILE} = undef;
-  $clone->{LOCAL_FOOTER} = undef;
+#  $clone->{LOCAL_FOOTER} = undef;
   $clone->{LOCAL_CSS_FILE} = undef;
   $clone->{ABOUT_FILE} = undef;
   $clone->{LOCAL_IMAGE_SIZE} = undef;
@@ -433,128 +433,128 @@ $self->debug(2,"  Read band: ".$1." == ".$2.", ".$3);
           push @{$self->{ENTRIES}}, $break;
 $self->debug(2,"  Read BREAK: \"".$title."\"");
         }
-        elsif (/ABOUT:\s+(.+)\s*/) {
+        elsif (/^ABOUT:\s+(.+)\s*/) {
           $self->{SETTINGS}->{ABOUT_FILE} = $directory."/".$1;
 $self->debug(2,"  Read ABOUT: \"".$self->{SETTINGS}->{ABOUT_FILE}."\"");
           $css_basename = basename($self->{SETTINGS}->{ABOUT_FILE});
         }
-        elsif (/LOCAL_CSS:\s+(.+)\s*/) {
+        elsif (/^LOCAL_CSS:\s+(.+)\s*/) {
           $self->{SETTINGS}->{LOCAL_CSS_FILE} = $directory."/".$1;
 $self->debug(2,"  Read LOCAL_CSS: \"".$self->{SETTINGS}->{LOCAL_CSS_FILE}."\"");
           $local_css_basename = basename($self->{SETTINGS}->{LOCAL_CSS_FILE});
         }
-        elsif (/CSS:\s+(.+)\s*/) {
+        elsif (/^CSS:\s+(.+)\s*/) {
           $self->{SETTINGS}->{CSS_FILE} = $directory."/".$1;
 $self->debug(2,"  Read CSS: \"".$self->{SETTINGS}->{CSS_FILE}."\"");
           $css_basename = basename($self->{SETTINGS}->{CSS_FILE});
         }
-        elsif (/HIGHLIGHT:\s+(.+)\s*/) {
+        elsif (/^HIGHLIGHT:\s+(.+)\s*/) {
           $self->{SETTINGS}->{HIGHLIGHT} = $1;
           chomp $self->{SETTINGS}->{HIGHLIGHT};
 $self->debug(2,"  Read HIGHLIGHT: \"".$self->{SETTINGS}->{HIGHLIGHT}."\"");
         }
-        elsif (/RSS_BASE:\s+(.+)\s*/) {
+        elsif (/^RSS_BASE:\s+(.+)\s*/) {
           $self->{SETTINGS}->{RSS_BASE} = $1;
           chomp $self->{SETTINGS}->{RSS_BASE};
 $self->debug(2,"  Read RSS_BASE: \"".$self->{SETTINGS}->{RSS_BASE}."\"");
         }
-        elsif (/LOCAL_COLUMNS:\s+([123456789])\s*/) {
+        elsif (/^LOCAL_COLUMNS:\s+([123456789])\s*/) {
           $self->{SETTINGS}->{LOCAL_COLUMNS} = $1;
 $self->debug(2,"  Read LOCAL_COLUMNS: \"".$self->{SETTINGS}->{LOCAL_COLUMNS}."\"");
         }
-        elsif (/TABLE_WIDTH:\s+([0123456789]*)\s*/) {
-          $self->{SETTINGS}->{TABLE_WIDTH} = $1;
-$self->debug(2,"  Read TABLE_WIDTH: \"".$self->{SETTINGS}->{TABLE_WIDTH}."\"");
-        }
-        elsif (/COLUMNS:\s+([123456789])\s*/) {
+        elsif (/^COLUMNS:\s+([123456789])\s*/) {
           $self->{SETTINGS}->{COLUMNS} = $1;
 $self->debug(2,"  Read COLUMNS: \"".$self->{SETTINGS}->{COLUMNS}."\"");
         }
-        elsif (/LOCAL_IMAGE_SIZE:\s+(\S*)\s*/) {
+        elsif (/^TABLE_WIDTH:\s+([0123456789]*)\s*/) {
+          $self->{SETTINGS}->{TABLE_WIDTH} = $1;
+$self->debug(2,"  Read TABLE_WIDTH: \"".$self->{SETTINGS}->{TABLE_WIDTH}."\"");
+        }
+        elsif (/^LOCAL_IMAGE_SIZE:\s+(\S*)\s*/) {
           $self->{SETTINGS}->{LOCAL_IMAGE_SIZE} = $1;
           chomp $self->{SETTINGS}->{LOCAL_IMAGE_SIZE};
 $self->debug(2,"  Read LOCAL_IMAGE_SIZE: \"".$self->{SETTINGS}->{LOCAL_IMAGE_SIZE}."\"");
         }
-        elsif (/IMAGE_SIZE:\s+(\S*)\s*/) {
+        elsif (/^IMAGE_SIZE:\s+(\S*)\s*/) {
           $self->{SETTINGS}->{IMAGE_SIZE} = $1;
           chomp $self->{SETTINGS}->{IMAGE_SIZE};
 $self->debug(2,"  Read IMAGE_SIZE: \"".$self->{SETTINGS}->{IMAGE_SIZE}."\"");
         }
-        elsif (/LOCAL_ALBUM_SIZE:\s+(\S*)\s*/) {
+        elsif (/^LOCAL_ALBUM_SIZE:\s+(\S*)\s*/) {
           $self->{SETTINGS}->{LOCAL_ALBUM_SIZE} = $1;
           chomp $self->{SETTINGS}->{LOCAL_ALBUM_SIZE};
 $self->debug(2,"  Read LOCAL_ALBUM_SIZE: \"".$self->{SETTINGS}->{LOCAL_ALBUM_SIZE}."\"");
         }
-        elsif (/ALBUM_SIZE:\s+(\S*)\s*/) {
+        elsif (/^ALBUM_SIZE:\s+(\S*)\s*/) {
           $self->{SETTINGS}->{ALBUM_SIZE} = $1;
           chomp $self->{SETTINGS}->{ALBUM_SIZE};
 $self->debug(2,"  Read ALBUM_SIZE: \"".$self->{SETTINGS}->{ALBUM_SIZE}."\"");
         }
-        elsif (/LOCAL_THUMB_SIZE:\s+(\S*)\s*/) {
+        elsif (/^LOCAL_THUMB_SIZE:\s+(\S*)\s*/) {
           $self->{SETTINGS}->{LOCAL_THUMB_SIZE} = $1;
           chomp $self->{SETTINGS}->{LOCAL_THUMB_SIZE};
 $self->debug(2,"  Read LOCAL_THUMB_SIZE: \"".$self->{SETTINGS}->{LOCAL_THUMB_SIZE}."\"");
         }
-        elsif (/THUMB_SIZE:\s+(\S*)\s*/) {
+        elsif (/^THUMB_SIZE:\s+(\S*)\s*/) {
           $self->{SETTINGS}->{THUMB_SIZE} = $1;
           chomp $self->{SETTINGS}->{THUMB_SIZE};
 $self->debug(2,"  Read THUMB_SIZE: \"".$self->{SETTINGS}->{THUMB_SIZE}."\"");
         }
-        elsif (/LOCAL_META_KEYWORDS:\s+(\S.*)\s*$/) {
+        elsif (/^LOCAL_META_KEYWORDS:\s+(\S.*)\s*/) {
           $self->{SETTINGS}->{LOCAL_META_KEYWORDS} = $1;
           chomp $self->{SETTINGS}->{LOCAL_META_KEYWORDS};
 $self->debug(2,"  Read LOCAL_META_KEYWORDS: \"".$self->{SETTINGS}->{LOCAL_META_KEYWORDS}."\"");
         }
-        elsif (/META_KEYWORDS:\s+(\S.*)\s*$/) {
+        elsif (/^META_KEYWORDS:\s+(\S.*)\s*/) {
           $self->{SETTINGS}->{META_KEYWORDS} = $1;
           chomp $self->{SETTINGS}->{META_KEYWORDS};
 $self->debug(2,"  Read META_KEYWORDS: \"".$self->{SETTINGS}->{META_KEYWORDS}."\"");
         }
-        elsif (/FOOTER:\s+(\S.*\S)\s*$/) {
+        elsif (/^FOOTER:\s+(\S.*\S)\s*/) {
           $self->{SETTINGS}->{FOOTER} = $1;
           chomp $self->{SETTINGS}->{FOOTER};
 $self->debug(2,"  Read FOOTER: \"".$self->{SETTINGS}->{FOOTER}."\"");
         }
-      elsif (/HEADER:\s+(.+)/) {
+      elsif (/^HEADER:\s+(.+)/) {
         $self->{SETTINGS}->{HEADER} = $1;
           chomp $self->{SETTINGS}->{HEADER};
 $self->debug(2,"  Read HEADER: \"".$self->{SETTINGS}->{HEADER}."\"");
       }
-      elsif (/ISTATS:\s+(.+)/) {
+      elsif (/^ISTATS:\s+(.+)/) {
         $self->{SETTINGS}->{ISTATS} = $1;
           chomp $self->{SETTINGS}->{ISTATS};
 $self->debug(2,"  Read ISTATS: \"".$self->{SETTINGS}->{ISTATS}."\"");
       }
-      elsif (/MORE:\s+(.+);(.+)/) {
+      elsif (/^MORE:\s+(.+);(.+)/) {
         $self->{SETTINGS}->{MORE_LINK} = $1;
         $self->{SETTINGS}->{MORE_NAME} = $2;
           chomp $self->{SETTINGS}->{MORE_LINK};
           chomp $self->{SETTINGS}->{MORE_NAME};
 $self->debug(2,"  Read MORE: \"".$self->{SETTINGS}->{MORE_LINK}." ".$self->{SETTINGS}->{MORE_NAME}."\"");
       }
-        elsif (/GAMMA:\s+(\S.*)\s*$/) {
+        elsif (/^GAMMA:\s+(\S.*)\s*/) {
           $self->{SETTINGS}->{GAMMA} = $1;
           chomp $self->{SETTINGS}->{GAMMA};
 $self->debug(2,"  Read GAMMA: \"".$self->{SETTINGS}->{GAMMA}."\"");
         }
-        elsif (/UNSHARP:\s+(\S.*)\s*$/) {
+        elsif (/^UNSHARP:\s+(\S.*)\s*/) {
           $self->{SETTINGS}->{UNSHARP} = $1;
           chomp $self->{SETTINGS}->{UNSHARP};
 $self->debug(2,"  Read UNSHARP: \"".$self->{SETTINGS}->{UNSHARP}."\"");
         }
-        elsif (/IMAGE_QUALITY:\s+(\S.*)\s*$/) {
+        elsif (/^IMAGE_QUALITY:\s+(\S.*)\s*/) {
           $self->{SETTINGS}->{IMAGE_QUALITY} = $1;
           chomp $self->{SETTINGS}->{IMAGE_QUALITY};
 $self->debug(2,"  Read IMAGE_QUALITY: \"".$self->{SETTINGS}->{IMAGE_QUALITY}."\"");
         }
-        elsif (/THUMB_QUALITY:\s+(\S.*)\s*$/) {
+        elsif (/^THUMB_QUALITY:\s+(\S.*)\s*/) {
           $self->{SETTINGS}->{THUMB_QUALITY} = $1;
           chomp $self->{SETTINGS}->{THUMB_QUALITY};
 $self->debug(2,"  Read THUMB_QUALITY: \"".$self->{SETTINGS}->{THUMB_QUALITY}."\"");
         }
 
       }
-      elsif (/(r*)\+(.+)\s*/) {
+      elsif (/^(r*)\+(.+)\s*/) {
         my $mask = $2; chomp $mask;
 $self->debug(1,"  Including from mask: \"".$mask."\"");
 
@@ -595,21 +595,19 @@ $self->debug(5,"    File: \"".$filename."\"");
           }
         }
       }
-      elsif (/\s*\S.*/) {
+      elsif (/^\s*\S.*/) {
         my $highlight;
         my $filename;
         my $title;
 	my $link;
-	if (/^(!)?(\@)?(.*?);(.*)\S*/) {
+	if (/^(!)?\@?(.*?);(.*)\S*/) {
           $highlight = $1;
-          $filename = $3;
-          $title = $4;
-	  $link = $2;
-        } elsif (/^(!)?(\@)?(.*)\S*/) {
+          $filename = $2;
+          $title = $3;
+          $link = "@";
+        } elsif (/^(!)?(.*)\S*/) {
           $highlight = $1;
-          $filename = $3;
-          $title = undef;
-	  $link = $2;
+          $filename = $2;
         }
         if ($filename eq $self->{SETTINGS}->{HIGHLIGHT}) {
           $highlight = "!";
